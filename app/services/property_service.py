@@ -17,3 +17,22 @@ def get_property_by_id(db: Session, property_id: str):
 def delete_property(db: Session, property):
     db.delete(property)
     db.commit()
+
+def get_properties_by_type(db: Session, property_type: str):
+    properties = (
+        db.query(Property)
+        .filter(Property.property_type.ilike(f"%{property_type}%"))
+        .limit(3)
+        .all()
+    )
+    return properties
+
+def format_properties_message(properties):
+    if not properties:
+        return "No encontramos propiedades con ese criterio."
+    message = "Estas son algunas propiedades disponibles:\n\n"
+    for p in properties:
+        message += f"🏠 {p.title}\n"
+        message += f"💰 {p.price}\n"
+        message += f"📍 {p.location}\n\n"
+    return message

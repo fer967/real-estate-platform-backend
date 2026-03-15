@@ -9,13 +9,16 @@ from app.models.property import Property
 
 router = APIRouter(prefix="/properties", tags=["properties"])
 
+
 @router.post("/")
 def create_property(property: PropertyCreate, db: Session = Depends(get_db)):
     return property_service.create_property(db, property)
 
+
 @router.get("/")
 def get_properties(db: Session = Depends(get_db)):
     return property_service.get_properties(db)
+
 
 @router.get("/{property_id}")
 def get_property(property_id: str, db: Session = Depends(get_db)):
@@ -59,10 +62,20 @@ async def create_property_with_image(
     db.refresh(new_property)
     return new_property
 
+
 @router.get("/{property_id}/leads")
 def get_property_leads(property_id: str, db: Session = Depends(get_db)):
     property = db.query(Property).filter(Property.id == property_id).first()
     if not property:
         raise HTTPException(status_code=404, detail="Property not found")
     return property.leads
+
+@router.delete("/{property_id}")
+def delete_property(property_id: str, db: Session = Depends(get_db)):
+    property = db.query(Property).filter(Property.id == property_id).first()
+    if not property:
+        raise HTTPException(status_code=404, detail="Property not found")
+    db.delete(property)
+    db.commit()
+    return {"message": "Property deleted"}
 

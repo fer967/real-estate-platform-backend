@@ -2,8 +2,21 @@ from fastapi import FastAPI
 from app.routers import properties, leads
 from app.routers import dashboard
 from app.routers import whatsapp
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Real Estate Platform API")
+
+origins = [
+    "http://localhost:5173",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(properties.router)
 app.include_router(leads.router)

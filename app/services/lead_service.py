@@ -3,7 +3,13 @@ from app.models.lead import Lead
 from app.integrations.hubspot import create_hubspot_contact
 from app.core.logger import logger
 
-def create_lead_service(db: Session, name: str, phone: str, message: str):
+def create_lead_service(db, name, phone, message):
+    existing_lead = db.query(Lead).filter(Lead.phone == phone).first()
+    if existing_lead:
+        existing_lead.message = message
+        db.commit()
+        db.refresh(existing_lead)
+        return existing_lead
     new_lead = Lead(
         name=name,
         phone=phone,
@@ -19,3 +25,5 @@ def create_lead_service(db: Session, name: str, phone: str, message: str):
     except Exception as e:
         logger.error(f"HubSpot integration failed: {str(e)}")
     return new_lead
+
+
