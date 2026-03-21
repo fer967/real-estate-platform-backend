@@ -18,6 +18,7 @@ def get_lead(lead_id: str, db: Session = Depends(get_db)):
     lead = db.query(Lead).filter(Lead.id == lead_id).first()
     return lead
 
+
 @router.post("/")
 def create_lead(lead: LeadCreate, db: Session = Depends(get_db)):
     return create_lead_service(

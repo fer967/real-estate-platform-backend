@@ -43,20 +43,18 @@ async def create_property_with_image(
     area_m2: float = Form(None),
     neighborhood: str = Form(None),
     featured: bool = Form(False),
+    cadastral_number: str = Form(None),
+    latitude: float = Form(None),
+    longitude: float = Form(None),
 ):
-    # generar nombre único
     file_extension = file.filename.split(".")[-1]
     filename = f"{uuid.uuid4()}.{file_extension}"
-    # leer archivo
     file_content = await file.read()
-    # subir a supabase
     supabase.storage.from_("properties").upload(
         filename,
         file_content
     )
-    # generar url pública
     image_url = f"{SUPABASE_URL}/storage/v1/object/public/properties/{filename}"
-    # crear propiedad en DB
     new_property = Property(
     title=title,
     description=description,
@@ -69,7 +67,10 @@ async def create_property_with_image(
     bathrooms=bathrooms,
     area_m2=area_m2,
     neighborhood=neighborhood,
-    featured=featured
+    featured=featured,
+    cadastral_number=cadastral_number,
+    latitude=latitude,
+    longitude=longitude
 )
     db.add(new_property)
     db.commit()

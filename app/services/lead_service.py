@@ -36,27 +36,5 @@ def create_lead_service(
         logger.error(f"HubSpot integration failed: {str(e)}")
     return new_lead
 
-# def create_lead_service(db, name, phone, message):
-#     existing_lead = db.query(Lead).filter(Lead.phone == phone).first()
-#     if existing_lead:
-#         existing_lead.message = message
-#         db.commit()
-#         db.refresh(existing_lead)
-#         return existing_lead
-#     new_lead = Lead(
-#         name=name,
-#         phone=phone,
-#         message=message,
-#         source="whatsapp"
-#     )
-#     db.add(new_lead)
-#     db.commit()
-#     db.refresh(new_lead)
-#     logger.info(f"Lead saved: {name}")
-#     try:
-#         create_hubspot_contact(name, None, phone)
-#     except Exception as e:
-#         logger.error(f"HubSpot integration failed: {str(e)}")
-#     return new_lead
 
 

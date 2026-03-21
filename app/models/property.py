@@ -38,3 +38,5 @@ class Property(Base):
     image_url = Column(String, nullable=True)
     
     leads = relationship("Lead", back_populates="property")
+    
+    cadastral_number = Column(String)

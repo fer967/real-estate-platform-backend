@@ -6,3 +6,4 @@ router = APIRouter(prefix="/idecor", tags=["idecor"])
 @router.get("/parcela/{numero}")
 def get_parcela(numero: str):
     return buscar_parcela_por_cuenta(numero)
+
