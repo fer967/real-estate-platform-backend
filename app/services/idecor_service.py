@@ -50,8 +50,7 @@ def buscar_parcela_por_cuenta(numero: str):
             geom = shape(geometry)
             centroid = geom.centroid
             lon, lat = transformer.transform(centroid.x, centroid.y)
-            # lat = centroid.y
-            # lon = centroid.x
+            print("TRANSFORMED:", lat, lon)
         except Exception as e:
             print("GEOMETRY ERROR:", e)
             lat, lon = None, None
