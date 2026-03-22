@@ -1,5 +1,8 @@
 import requests
+from pyproj import Transformer
 from shapely.geometry import shape
+
+transformer = Transformer.from_crs("EPSG:22185", "EPSG:4326", always_xy=True)
 
 WFS_URL = "https://idecor-ws.mapascordoba.gob.ar/geoserver/idecor/parcelas/wfs"
 
@@ -46,19 +49,45 @@ def buscar_parcela_por_cuenta(numero: str):
         try:
             geom = shape(geometry)
             centroid = geom.centroid
-            lat = centroid.y
-            lon = centroid.x
+            lon, lat = transformer.transform(centroid.x, centroid.y)
+            # lat = centroid.y
+            # lon = centroid.x
         except Exception as e:
             print("GEOMETRY ERROR:", e)
             lat, lon = None, None
-
+            
         return {
             "geometry": geometry,
             "latitude": lat,
             "longitude": lon,
-            "area": props.get("SUP_TERR") or props.get("superficie"),
+
+    # datos listos para UI 👇
+            "idecor": {
+                "cuenta": props.get("Nro_Cuenta"),
+                "nomenclatura": props.get("Nomenclatura"),
+                "designacion": props.get("desig_oficial"),
+                "tipo_inmueble": props.get("Tipo_Parcela"),
+                "tipo_valuacion": props.get("Tipo_Valuacion"),
+                "estado": props.get("Estado"),
+                "superficie_terreno": props.get("Superficie_Tierra_Urbana"),
+                "superficie_mejoras": props.get("Superficie_Mejoras"),
+                "valuacion_total": props.get("Valuacion"),
+                "valuacion_tierra": props.get("Valuacion_Tierra_Urbana"),
+                "valuacion_mejoras": props.get("Valuacion_Mejoras"),
+                "localidad": props.get("localidad"),
+                "departamento": props.get("departamento"),
+},
+    # opcional: debug completo
             "properties": props
-        }
+}
+
+        # return {
+        #     "geometry": geometry,
+        #     "latitude": lat,
+        #     "longitude": lon,
+        #     "area": props.get("SUP_TERR") or props.get("superficie"),
+        #     "properties": props
+        # }
 
     except Exception as e:
         print("ERROR IDECOR:", str(e))
