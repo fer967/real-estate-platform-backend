@@ -9,6 +9,7 @@ app = FastAPI(title="Real Estate Platform API")
 
 origins = [
     "http://localhost:5173",
+    "https://frontend-plataforma-inmobiliaria.onrender.com"
 ]
 
 app.add_middleware(
