@@ -3,7 +3,7 @@ from pyproj import Transformer
 from shapely.geometry import shape
 
 # transformer = Transformer.from_crs("EPSG:22185", "EPSG:4326", always_xy=True)
-transformer = Transformer.from_crs("EPSG:5347", "EPSG:4326", always_xy=True)
+transformer = Transformer.from_crs("EPSG:3857", "EPSG:4326", always_xy=True)
 
 WFS_URL = "https://idecor-ws.mapascordoba.gob.ar/geoserver/idecor/parcelas/wfs"
 
@@ -51,6 +51,7 @@ def buscar_parcela_por_cuenta(numero: str):
             geom = shape(geometry)
             centroid = geom.centroid
             lon, lat = transformer.transform(centroid.x, centroid.y)
+            print("ORIGINAL:", centroid.x, centroid.y)
             print("TRANSFORMED:", lat, lon)
         except Exception as e:
             print("GEOMETRY ERROR:", e)
@@ -80,14 +81,6 @@ def buscar_parcela_por_cuenta(numero: str):
     # opcional: debug completo
             "properties": props
 }
-
-        # return {
-        #     "geometry": geometry,
-        #     "latitude": lat,
-        #     "longitude": lon,
-        #     "area": props.get("SUP_TERR") or props.get("superficie"),
-        #     "properties": props
-        # }
 
     except Exception as e:
         print("ERROR IDECOR:", str(e))
