@@ -13,7 +13,10 @@ def get_kml(numero: str):
     kml = generar_kml(data["geometry"])
     return Response(
         content=kml,
-        media_type="application/vnd.google-earth.kml+xml"
+        media_type="application/vnd.google-earth.kml+xml",
+        headers={
+            "Content-Disposition": f"attachment; filename=parcela_{numero}.kml"
+        }
     )
 
 
