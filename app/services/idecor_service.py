@@ -5,10 +5,11 @@ from shapely.geometry import shape
 import simplekml
 
 def generar_kml(geometry):
+    import simplekml
     kml = simplekml.Kml()
     for polygon in geometry["coordinates"]:
         for ring in polygon:
-            coords = [(x, y) for x, y in ring]
+            coords = [(x, y) for x, y in ring]  # ya están en lon/lat
             pol = kml.newpolygon(
                 name="Parcela",
                 outerboundaryis=coords
@@ -17,8 +18,21 @@ def generar_kml(geometry):
             pol.style.polystyle.fill = 0
     return kml.kml()
 
-# transformer = Transformer.from_crs("EPSG:22185", "EPSG:4326", always_xy=True)
-transformer = Transformer.from_crs("EPSG:3857", "EPSG:4326", always_xy=True)
+# def generar_kml(geometry):
+#     kml = simplekml.Kml()
+#     for polygon in geometry["coordinates"]:
+#         for ring in polygon:
+#             coords = [(x, y) for x, y in ring]
+#             pol = kml.newpolygon(
+#                 name="Parcela",
+#                 outerboundaryis=coords
+#             )
+#             pol.style.linestyle.width = 2
+#             pol.style.polystyle.fill = 0
+#     return kml.kml()
+
+transformer = Transformer.from_crs("EPSG:22185", "EPSG:4326", always_xy=True)
+# transformer = Transformer.from_crs("EPSG:3857", "EPSG:4326", always_xy=True)
 
 WFS_URL = "https://idecor-ws.mapascordoba.gob.ar/geoserver/idecor/parcelas/wfs"
 
@@ -30,7 +44,8 @@ def buscar_parcela_por_cuenta(numero: str):
             "request": "GetFeature",
             "typeName": "idecor:parcelas",
             "outputFormat": "application/json",
-            "CQL_FILTER": f"Nro_Cuenta='{numero}'"
+            "CQL_FILTER": f"Nro_Cuenta='{numero}'",
+            "srsName": "EPSG:4326" 
         }
 
         response = requests.get(WFS_URL, params=params, timeout=10)
