@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
 
 class PropertyBase(BaseModel):
@@ -18,6 +18,7 @@ class PropertyBase(BaseModel):
     longitude: Optional[float] = None
     featured: Optional[bool] = False
     image_url: Optional[str] = None
+    images: Optional[List[str]] = None 
 
 
 class PropertyCreate(PropertyBase):
@@ -30,10 +31,3 @@ class PropertyResponse(PropertyBase):
     class Config:
         from_attributes = True
         
-        # class Config:
-        #     orm_mode = True
-        
-        
-#         model_config = {
-#     "from_attributes": True
-# }
