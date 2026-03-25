@@ -1,33 +1,28 @@
 import requests
-from pyproj import Transformer
 from shapely.geometry import shape
-
 
 def generar_kml(geometry):
     import simplekml
     kml = simplekml.Kml()
     for polygon in geometry["coordinates"]:
         for ring in polygon:
-            coords = [(x, y) for x, y in ring]  # ya están en lon/lat
+            coords = [(x, y) for x, y in ring]  
             pol = kml.newpolygon(
                 name="Parcela",
                 outerboundaryis=coords
             )
-            pol.style.linestyle.color = simplekml.Color.red  # color línea
-            pol.style.linestyle.width = 3                    # grosor
+            pol.style.linestyle.color = simplekml.Color.red  
+            pol.style.linestyle.width = 3                    
             pol.style.polystyle.color = simplekml.Color.changealphaint(
             100, simplekml.Color.red
-            )  # relleno semi-transparente
-            # pol.style.linestyle.width = 2
-            # pol.style.polystyle.fill = 0
+            )  
     return kml.kml()
 
-
-transformer = Transformer.from_crs("EPSG:22185", "EPSG:4326", always_xy=True)
 
 WFS_URL = "https://idecor-ws.mapascordoba.gob.ar/geoserver/idecor/parcelas/wfs"
 
 def buscar_parcela_por_cuenta(numero: str):
+    numero = numero.strip()
     try:
         params = {
             "service": "WFS",
@@ -38,8 +33,16 @@ def buscar_parcela_por_cuenta(numero: str):
             "CQL_FILTER": f"Nro_Cuenta='{numero}'",
             "srsName": "EPSG:4326" 
         }
+        
+        import time
+        for i in range(2):
+            try:
+                response = requests.get(WFS_URL, params=params, timeout=25)
+            except requests.exceptions.Timeout:
+                print("Retry IDECOR...")
+                time.sleep(2)
 
-        response = requests.get(WFS_URL, params=params, timeout=10)
+        # response = requests.get(WFS_URL, params=params, timeout=10)
 
         print("STATUS:", response.status_code)
 
@@ -71,7 +74,8 @@ def buscar_parcela_por_cuenta(numero: str):
         try:
             geom = shape(geometry)
             centroid = geom.centroid
-            lon, lat = transformer.transform(centroid.x, centroid.y)
+            lon = centroid.x
+            lat = centroid.y
             print("ORIGINAL:", centroid.x, centroid.y)
             print("TRANSFORMED:", lat, lon)
         except Exception as e:
