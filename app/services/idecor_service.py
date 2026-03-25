@@ -2,7 +2,6 @@ import requests
 from pyproj import Transformer
 from shapely.geometry import shape
 
-import simplekml
 
 def generar_kml(geometry):
     import simplekml
@@ -14,25 +13,17 @@ def generar_kml(geometry):
                 name="Parcela",
                 outerboundaryis=coords
             )
-            pol.style.linestyle.width = 2
-            pol.style.polystyle.fill = 0
+            pol.style.linestyle.color = simplekml.Color.red  # color línea
+            pol.style.linestyle.width = 3                    # grosor
+            pol.style.polystyle.color = simplekml.Color.changealphaint(
+            100, simplekml.Color.red
+            )  # relleno semi-transparente
+            # pol.style.linestyle.width = 2
+            # pol.style.polystyle.fill = 0
     return kml.kml()
 
-# def generar_kml(geometry):
-#     kml = simplekml.Kml()
-#     for polygon in geometry["coordinates"]:
-#         for ring in polygon:
-#             coords = [(x, y) for x, y in ring]
-#             pol = kml.newpolygon(
-#                 name="Parcela",
-#                 outerboundaryis=coords
-#             )
-#             pol.style.linestyle.width = 2
-#             pol.style.polystyle.fill = 0
-#     return kml.kml()
 
 transformer = Transformer.from_crs("EPSG:22185", "EPSG:4326", always_xy=True)
-# transformer = Transformer.from_crs("EPSG:3857", "EPSG:4326", always_xy=True)
 
 WFS_URL = "https://idecor-ws.mapascordoba.gob.ar/geoserver/idecor/parcelas/wfs"
 
