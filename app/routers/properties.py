@@ -119,41 +119,39 @@ async def update_property_with_images(
     description: str = Form(None),
     price: float = Form(...),
     city: str = Form(...),
+    existing_images: str = Form(None),  # 👈 JSON string
     files: List[UploadFile] = File(None),
     db: Session = Depends(get_db),
 ):
+    import json
     db_property = db.query(Property).filter(Property.id == property_id).first()
-
     if not db_property:
         raise HTTPException(status_code=404, detail="Property not found")
-
-    # actualizar datos básicos
+    # actualizar datos
     db_property.title = title
     db_property.description = description
     db_property.price = price
     db_property.city = city
-
-    # si vienen imágenes nuevas
+    # 🔹 imágenes existentes (las que el usuario dejó)
+    current_images = []
+    if existing_images:
+        current_images = json.loads(existing_images)
+    # 🔹 nuevas imágenes
+    new_images = []
     if files:
-        image_urls = []
-
         for file in files:
             file_extension = file.filename.split(".")[-1]
             filename = f"{uuid.uuid4()}.{file_extension}"
-
             content = await file.read()
-
             supabase.storage.from_("properties").upload(filename, content)
-
             url = f"{SUPABASE_URL}/storage/v1/object/public/properties/{filename}"
-            image_urls.append(url)
-
-        db_property.image_url = image_urls[0]
-        db_property.images = image_urls
-
+            new_images.append(url)
+    # 🔹 combinación final
+    final_images = current_images + new_images
+    db_property.images = final_images
+    db_property.image_url = final_images[0] if final_images else None
     db.commit()
     db.refresh(db_property)
-
     return db_property
 
 
@@ -167,17 +165,40 @@ async def update_property_with_images(
 #     files: List[UploadFile] = File(None),
 #     db: Session = Depends(get_db),
 # ):
+#     db_property = db.query(Property).filter(Property.id == property_id).first()
+
+#     if not db_property:
+#         raise HTTPException(status_code=404, detail="Property not found")
+
+#     # actualizar datos básicos
+#     db_property.title = title
+#     db_property.description = description
+#     db_property.price = price
+#     db_property.city = city
+
+#     # si vienen imágenes nuevas
 #     if files:
 #         image_urls = []
-#     for file in files:
-#         file_extension = file.filename.split(".")[-1]
-#         filename = f"{uuid.uuid4()}.{file_extension}"
-#         content = await file.read()
-#         supabase.storage.from_("properties").upload(filename, content)
-#         url = f"{SUPABASE_URL}/storage/v1/object/public/properties/{filename}"
-#         image_urls.append(url)
-#     property.image_url = image_urls[0]
-#     property.images = image_urls
+
+#         for file in files:
+#             file_extension = file.filename.split(".")[-1]
+#             filename = f"{uuid.uuid4()}.{file_extension}"
+
+#             content = await file.read()
+
+#             supabase.storage.from_("properties").upload(filename, content)
+
+#             url = f"{SUPABASE_URL}/storage/v1/object/public/properties/{filename}"
+#             image_urls.append(url)
+
+#         db_property.image_url = image_urls[0]
+#         db_property.images = image_urls
+
+#     db.commit()
+#     db.refresh(db_property)
+
+#     return db_property
+
 
 
 @router.delete("/{property_id}")
