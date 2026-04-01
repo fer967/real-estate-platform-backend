@@ -11,14 +11,11 @@ def send_whatsapp_message(to: str, message: str):
         "Content-Type": "application/json"
     }
     payload = {
-    "messaging_product": "whatsapp",
-    "to": to,
-    "type": "template",
-    "template": {
-        "name": "hello_world",
-        "language": {
-            "code": "en_US"
-            }
+        "messaging_product": "whatsapp",
+        "to": to,
+        "type": "text",
+        "text": {
+            "body": message
         }
     }
     response = requests.post(url, headers=headers, json=payload)
@@ -42,6 +39,7 @@ def send_menu_message(to):
         }
     }
     requests.post(url, headers=headers, json=payload)
+
 
 
 
