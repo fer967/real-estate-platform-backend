@@ -26,9 +26,23 @@ async def verify_webhook(request: Request):
         return int(challenge)
     return {"error": "Verification failed"}
 
+# from fastapi.responses import PlainTextResponse
+
+# @router.get("/webhook")
+# async def verify_webhook(request: Request):
+#     params = request.query_params
+#     mode = params.get("hub.mode")
+#     token = params.get("hub.verify_token")
+#     challenge = params.get("hub.challenge")
+#     if mode == "subscribe" and token == VERIFY_TOKEN:
+#         return PlainTextResponse(content=challenge, status_code=200)
+#     return {"error": "Verification failed"}
+
+
 
 @router.post("/webhook")
 async def receive_message(request: Request):
+    print("🔥 WEBHOOK HIT")
     body = await request.json()
 
     try:
