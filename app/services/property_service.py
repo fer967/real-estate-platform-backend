@@ -18,7 +18,7 @@ def delete_property(db: Session, property):
     db.delete(property)
     db.commit()
 
-def get_properties_by_type(db: Session, property_type: str):
+def get_properties_by_property_type(db: Session, property_type: str):
     properties = (
         db.query(Property)
         .filter(Property.property_type.ilike(f"%{property_type}%"))
@@ -34,5 +34,15 @@ def format_properties_message(properties):
     for p in properties:
         message += f"🏠 {p.title}\n"
         message += f"💰 {p.price}\n"
-        message += f"📍 {p.location}\n\n"
+        message += f"📍 {p.city} {p.neighborhood or ''}\n\n"
     return message
+
+
+def get_properties_by_operation(db: Session, operation_type: str):
+    return (
+        db.query(Property)
+        .filter(Property.operation_type.ilike(f"%{operation_type}%"))
+        .limit(3)
+        .all()
+    )
+        

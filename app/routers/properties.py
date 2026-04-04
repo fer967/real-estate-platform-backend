@@ -1,5 +1,4 @@
 from importlib.metadata import files
-
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from app.core.database import get_db
@@ -153,52 +152,6 @@ async def update_property_with_images(
     db.commit()
     db.refresh(db_property)
     return db_property
-
-
-# @router.put("/{property_id}/with-images")
-# async def update_property_with_images(
-#     property_id: str,
-#     title: str = Form(...),
-#     description: str = Form(None),
-#     price: float = Form(...),
-#     city: str = Form(...),
-#     files: List[UploadFile] = File(None),
-#     db: Session = Depends(get_db),
-# ):
-#     db_property = db.query(Property).filter(Property.id == property_id).first()
-
-#     if not db_property:
-#         raise HTTPException(status_code=404, detail="Property not found")
-
-#     # actualizar datos básicos
-#     db_property.title = title
-#     db_property.description = description
-#     db_property.price = price
-#     db_property.city = city
-
-#     # si vienen imágenes nuevas
-#     if files:
-#         image_urls = []
-
-#         for file in files:
-#             file_extension = file.filename.split(".")[-1]
-#             filename = f"{uuid.uuid4()}.{file_extension}"
-
-#             content = await file.read()
-
-#             supabase.storage.from_("properties").upload(filename, content)
-
-#             url = f"{SUPABASE_URL}/storage/v1/object/public/properties/{filename}"
-#             image_urls.append(url)
-
-#         db_property.image_url = image_urls[0]
-#         db_property.images = image_urls
-
-#     db.commit()
-#     db.refresh(db_property)
-
-#     return db_property
-
 
 
 @router.delete("/{property_id}")
