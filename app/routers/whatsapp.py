@@ -139,11 +139,11 @@ async def receive_message(request: Request):
         if phone.startswith("549"):
             phone = "54" + phone[3:]
             
-            if phone not in user_context:   #### inicializar contexto para nuevo usuario
-                user_context[phone] = {
-                    "operation": None,
-                    "type": None
-                }
+        if phone not in user_context:   #### inicializar contexto para nuevo usuario
+            user_context[phone] = {
+                "operation": None,
+                "type": None
+            }
             
         # 👇 detectar botones o texto
         interactive = message.get("interactive", {})
@@ -216,35 +216,49 @@ async def receive_message(request: Request):
                 ).limit(3).all()
             else:
                 properties = get_properties_by_property_type(db, "departamento")
-                msg = format_properties_message(properties)
+            msg = format_properties_message(properties)
             send_whatsapp_message(phone, msg)
             
-        elif text_lower in ["casa", "casas"]:    ## detectar tanto "casa" como "casas"
+        elif any(word in text_lower for word in ["casa", "casas"]):
+    # si el mensaje es más largo → NO asumir
+            if len(text_lower.split()) > 2:
+                send_help_menu(phone)
+                return {"status": "ambiguous"}
             user_context[phone]["type"] = "casa"
             operation = user_context[phone].get("operation")
             if operation:
-        # 🔥 filtrar por ambos
                 properties = db.query(Property).filter(
-                    Property.operation_type.ilike(f"%{operation}%"),
-                    Property.property_type.ilike("%casa%")
-                ).limit(3).all()
+                Property.operation_type.ilike(f"%{operation}%"),
+                Property.property_type.ilike("%casa%")
+            ).limit(3).all()
             else:
                 properties = get_properties_by_property_type(db, "casa")
             msg = format_properties_message(properties)
             send_whatsapp_message(phone, msg)
-            
-        elif text_lower in ["local", "locales"]:
-            user_context[phone]["type"] = "local"
+
+
+        elif any(word in text_lower for word in ["local", " locales"]):
+    # si el mensaje es más largo → NO asumir
+            if len(text_lower.split()) > 2:
+                send_help_menu(phone)
+                return {"status": "ambiguous"}
+            user_context[phone]["type"] = " local "
             operation = user_context[phone].get("operation")
             if operation:
                 properties = db.query(Property).filter(
                     Property.operation_type.ilike(f"%{operation}%"),
-                    Property.property_type.ilike("%local%")
+                    Property.property_type.ilike("%local %")
                 ).limit(3).all()
             else:
-                properties = get_properties_by_property_type(db, "local")
-                msg = format_properties_message(properties)
-                send_whatsapp_message(phone, msg)
+                properties = get_properties_by_property_type(db, " local ")
+            msg = format_properties_message(properties)
+            send_whatsapp_message(phone, msg)
+            
+            
+        elif any(word in text_lower for word in ["barrio", "zona", "precio"]):
+            send_help_menu(phone)
+
+
 
         elif "asesor" in text_lower:
             lead = db.query(Lead).filter(Lead.phone == phone).first()
