@@ -18,8 +18,18 @@ def create_property(property: PropertyCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/")
-def get_properties(db: Session = Depends(get_db)):
-    return property_service.get_properties(db)
+def get_properties(
+    operation: str = None,
+    property_type: str = None,
+    city: str = None,
+    db: Session = Depends(get_db)
+):
+    return property_service.get_properties(
+        db,
+        operation=operation,
+        property_type=property_type,
+        city=city
+    )
 
 
 @router.get("/{property_id}")

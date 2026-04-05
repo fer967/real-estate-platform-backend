@@ -8,8 +8,20 @@ def create_property(db: Session, property_data):
     db.refresh(new_property)
     return new_property
 
-def get_properties(db: Session):
-    return db.query(Property).all()
+def get_properties(
+    db: Session,
+    operation: str = None,
+    property_type: str = None,
+    city: str = None
+):
+    query = db.query(Property)
+    if operation:
+        query = query.filter(Property.operation_type.ilike(f"%{operation}%"))
+    if property_type:
+        query = query.filter(Property.property_type.ilike(f"%{property_type}%"))
+    if city:
+        query = query.filter(Property.city.ilike(f"%{city}%"))
+    return query.all()
 
 def get_property_by_id(db: Session, property_id: str):
     return db.query(Property).filter(Property.id == property_id).first()
@@ -45,4 +57,3 @@ def get_properties_by_operation(db: Session, operation_type: str):
         .limit(3)
         .all()
     )
-        
