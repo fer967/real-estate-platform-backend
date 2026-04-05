@@ -163,24 +163,21 @@ async def receive_message(request: Request):
             properties = get_properties_by_property_type(db, "local")
             msg = format_properties_message(properties)
             send_whatsapp_message(phone, msg)
-            
+
         elif "asesor" in text_lower:
             lead = db.query(Lead).filter(Lead.phone == phone).first()
-
             if lead:
                 lead.status = "human"
                 db.commit()
-
-                send_whatsapp_message(
+            send_whatsapp_message(
                 phone,
                 "🙌 Perfecto, un asesor te va a escribir en breve."
-                )
-
-                send_whatsapp_message(
+            )
+            send_whatsapp_message(
                 "5493516271526",
                 f"📢 Nuevo lead\n\n👤 {name}\n📞 {phone}\n💬 {text}"
-                )
-            
+            )
+
         # 4️⃣ FALLBACK → MENÚ INTERACTIVO
         else:
             send_whatsapp_message(
