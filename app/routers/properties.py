@@ -95,6 +95,7 @@ async def create_property_with_image(
     db.refresh(new_property)
     return new_property
 
+
 @router.get("/{property_id}/leads")
 def get_property_leads(property_id: str, db: Session = Depends(get_db)):
     property = db.query(Property).filter(Property.id == property_id).first()
@@ -116,6 +117,7 @@ def update_property(
     property.description = property_data.description
     property.price = property_data.price
     property.city = property_data.city
+    property.neighborhood = property_data.neighborhood
     db.commit()
     db.refresh(property)
     return property
@@ -126,6 +128,7 @@ async def update_property_with_images(
     property_id: str,
     title: str = Form(...),
     description: str = Form(None),
+    neighborhood: str = Form(None),
     price: float = Form(...),
     city: str = Form(...),
     existing_images: str = Form(None),  # 👈 JSON string
@@ -139,6 +142,7 @@ async def update_property_with_images(
     # actualizar datos
     db_property.title = title
     db_property.description = description
+    db_property.neighborhood = neighborhood
     db_property.price = price
     db_property.city = city
     # 🔹 imágenes existentes (las que el usuario dejó)
