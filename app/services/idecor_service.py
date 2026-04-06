@@ -1,21 +1,37 @@
 import requests
 from shapely.geometry import shape
 
-def generar_kml(geometry):
+def generar_kml(geometry, idecor_data=None):
     import simplekml
     kml = simplekml.Kml()
+    # 📋 armar descripción HTML
+    description = ""
+    if idecor_data:
+        description = f"""
+        <h3>Datos de la parcela</h3>
+        <b>Cuenta:</b> {idecor_data.get("cuenta")}<br/>
+        <b>Nomenclatura:</b> {idecor_data.get("nomenclatura")}<br/>
+        <b>Designación:</b> {idecor_data.get("designacion")}<br/>
+        <b>Tipo:</b> {idecor_data.get("tipo_inmueble")}<br/>
+        <b>Estado:</b> {idecor_data.get("estado")}<br/>
+        <b>Sup. Terreno:</b> {idecor_data.get("superficie_terreno")} m²<br/>
+        <b>Sup. Edificada:</b> {idecor_data.get("superficie_mejoras")} m²<br/>
+        <b>Valuación:</b> ${idecor_data.get("valuacion_total")}<br/>
+        """
     for polygon in geometry["coordinates"]:
         for ring in polygon:
-            coords = [(x, y) for x, y in ring]  
+            coords = [(x, y) for x, y in ring]
             pol = kml.newpolygon(
-                name="Parcela",
+                name="Parcela IDECOR",
+                description=description,   # 👈 ACA está la magia
                 outerboundaryis=coords
             )
-            pol.style.linestyle.color = simplekml.Color.red  
-            pol.style.linestyle.width = 3                    
+            pol.style.linestyle.color = simplekml.Color.red
+            pol.style.linestyle.width = 3
+            pol.style.polystyle.outline = 1 
             pol.style.polystyle.color = simplekml.Color.changealphaint(
-            100, simplekml.Color.red
-            )  
+                100, simplekml.Color.red
+            )
     return kml.kml()
 
 
@@ -41,12 +57,9 @@ def buscar_parcela_por_cuenta(numero: str):
             except requests.exceptions.Timeout:
                 print("Retry IDECOR...")
                 time.sleep(2)
-
         print("STATUS:", response.status_code)
-
         if response.status_code != 200:
             return {"error": "IDECOR request failed"}
-
         # ⚠️ validar JSON
         try:
             data = response.json()
@@ -57,10 +70,6 @@ def buscar_parcela_por_cuenta(numero: str):
         if not features:
             return {"error": "No parcel found"}
         feature = features[0]
-        
-        
-
-
         geometry = feature.get("geometry")  
         if not geometry:
             return {"error": "No geometry found"}
@@ -75,8 +84,6 @@ def buscar_parcela_por_cuenta(numero: str):
         except Exception as e:
             print("GEOMETRY ERROR:", e)
             lat, lon = None, None
-
-
         return {
             "geometry": geometry,
             "latitude": lat,
@@ -102,6 +109,28 @@ def buscar_parcela_por_cuenta(numero: str):
     except Exception as e:
         print("ERROR IDECOR:", str(e))
         return {"error": "Internal server error"}
+
+
+
+
+
+# def generar_kml(geometry):
+#     import simplekml
+#     kml = simplekml.Kml()
+#     for polygon in geometry["coordinates"]:
+#         for ring in polygon:
+#             coords = [(x, y) for x, y in ring]  
+#             pol = kml.newpolygon(
+#                 name="Parcela",
+#                 outerboundaryis=coords
+#             )
+#             pol.style.linestyle.color = simplekml.Color.red  
+#             pol.style.linestyle.width = 3 
+#             pol.style.polystyle.outline = 1                   
+#             pol.style.polystyle.color = simplekml.Color.changealphaint(
+#             100, simplekml.Color.red
+#             )  
+#     return kml.kml()
 
 
 

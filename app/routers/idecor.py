@@ -10,12 +10,12 @@ def get_kml(numero: str):
     data = buscar_parcela_por_cuenta(numero)
     if not data or "geometry" not in data:
         return {"error": "No data"}
-    kml = generar_kml(data["geometry"])
+    kml = generar_kml(data["geometry"], data["idecor"])
     return Response(
         content=kml,
         media_type="application/vnd.google-earth.kml+xml",
         headers={
-            "Content-Disposition": f"attachment; filename=parcela_{numero}.kml"
+            "Content-Disposition": f"inline; filename=parcela_{numero}.kml"
         }
     )
 
