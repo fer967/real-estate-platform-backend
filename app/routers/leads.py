@@ -14,7 +14,7 @@ def get_contacts(db: Session = Depends(get_db)):
     return db.query(Contact).order_by(Contact.created_at.desc()).all()
 
 
-@router.get("/leads/contact/{contact_id}")
+@router.get("/contact/{contact_id}")
 def get_leads_by_contact(contact_id: str, db: Session = Depends(get_db)):
     return db.query(Lead)\
         .filter(Lead.contact_id == contact_id)\
