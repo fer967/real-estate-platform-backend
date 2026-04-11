@@ -9,6 +9,19 @@ from fastapi import HTTPException
 
 router = APIRouter(prefix="/leads", tags=["leads"])
 
+@router.get("/contacts")
+def get_contacts(db: Session = Depends(get_db)):
+    return db.query(Contact).order_by(Contact.created_at.desc()).all()
+
+
+@router.get("/leads/contact/{contact_id}")
+def get_leads_by_contact(contact_id: str, db: Session = Depends(get_db)):
+    return db.query(Lead)\
+        .filter(Lead.contact_id == contact_id)\
+        .order_by(Lead.created_at.asc())\
+        .all()
+
+
 @router.get("/")
 def get_leads(db: Session = Depends(get_db)):
     leads = db.query(Lead).options(joinedload(Lead.property)).all()
@@ -44,17 +57,6 @@ def update_lead_status(lead_id: str, status: str, db: Session = Depends(get_db))
     return lead
 
 
-@router.get("/contacts")
-def get_contacts(db: Session = Depends(get_db)):
-    return db.query(Contact).order_by(Contact.created_at.desc()).all()
-
-
-@router.get("/leads/contact/{contact_id}")
-def get_leads_by_contact(contact_id: str, db: Session = Depends(get_db)):
-    return db.query(Lead)\
-        .filter(Lead.contact_id == contact_id)\
-        .order_by(Lead.created_at.asc())\
-        .all()
 
 
 
