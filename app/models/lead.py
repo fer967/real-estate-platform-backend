@@ -4,6 +4,8 @@ from sqlalchemy.sql import func
 import uuid
 from app.core.database import Base
 from sqlalchemy.orm import relationship
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import relationship
 
 class Lead(Base):
     __tablename__ = "leads"
@@ -18,3 +20,5 @@ class Lead(Base):
     status = Column(String, default="new")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     property = relationship("Property", back_populates="leads")
+    contact_id = Column(String, ForeignKey("contacts.id"))
+    contact = relationship("Contact", backref="leads")

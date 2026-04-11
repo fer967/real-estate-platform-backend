@@ -1,3 +1,4 @@
+from wsgiref import headers
 import requests
 import os
 from dotenv import load_dotenv
@@ -21,15 +22,40 @@ def create_hubspot_contact(name, email, phone):
         }
     }
     try:
+# modificacion para retornar el id del contacto creado en hubspot, para luego guardarlo en la base de datos local
         response = requests.post(url, headers=headers, json=data)
         if response.status_code == 201:
             logger.info("HubSpot contact created successfully")
+            contact_id=response.json()["id"]
+            return contact_id
         else:
             logger.warning(
                 f"HubSpot error {response.status_code}: {response.text}"
             )
     except requests.exceptions.RequestException as e:
         logger.error(f"HubSpot connection error: {str(e)}")
+        
+
+
+def create_note_in_hubspot(contact_id, message):
+    url = "https://api.hubapi.com/crm/v3/objects/notes"
+    data = {
+        "properties": {
+            "hs_note_body": message
+        },
+        "associations": [
+            {
+                "to": {"id": contact_id},
+                "types": [
+                    {
+                        "associationCategory": "HUBSPOT_DEFINED",
+                        "associationTypeId": 202
+                    }
+                ]
+            }
+        ]
+    }
+    requests.post(url, headers=headers, json=data)
 
 
 
