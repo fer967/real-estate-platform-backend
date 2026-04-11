@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session, joinedload
 from app.core.database import get_db
+from app.models.contact import Contact
 from app.models.lead import Lead
 from app.schemas.lead_schema import LeadCreate
 from app.services.lead_service import create_lead_service
@@ -41,6 +42,19 @@ def update_lead_status(lead_id: str, status: str, db: Session = Depends(get_db))
     db.commit()
     db.refresh(lead)
     return lead
+
+
+@router.get("/contacts")
+def get_contacts(db: Session = Depends(get_db)):
+    return db.query(Contact).order_by(Contact.created_at.desc()).all()
+
+
+@router.get("/leads/contact/{contact_id}")
+def get_leads_by_contact(contact_id: str, db: Session = Depends(get_db)):
+    return db.query(Lead)\
+        .filter(Lead.contact_id == contact_id)\
+        .order_by(Lead.created_at.asc())\
+        .all()
 
 
 
