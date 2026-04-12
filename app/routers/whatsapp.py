@@ -127,6 +127,7 @@ def send_help_menu(to):
 # 📥 RECEIVE WEBHOOK
 @router.post("/webhook")
 async def receive_message(request: Request):
+    print("BODY COMPLETO:", body)
     print("🔥 WEBHOOK HIT")
     body = await request.json()
     try:
