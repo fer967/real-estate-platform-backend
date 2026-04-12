@@ -1,3 +1,5 @@
+import traceback
+
 from fastapi import APIRouter, Request
 import os
 import requests
@@ -127,8 +129,8 @@ def send_help_menu(to):
 # 📥 RECEIVE WEBHOOK
 @router.post("/webhook")
 async def receive_message(request: Request):
-    print("BODY COMPLETO:", body)
     print("🔥 WEBHOOK HIT")
+    print("BODY COMPLETO:", body)
     body = await request.json()
     try:
         entry = body["entry"][0]
@@ -139,8 +141,8 @@ async def receive_message(request: Request):
         message = value["messages"][0]
         phone = message["from"]
         # normalizar número Argentina
-        if phone.startswith("549"):
-            phone = "54" + phone[3:]
+        # if phone.startswith("549"):
+        #     phone = "54" + phone[3:]
             
         if phone not in user_context:   #### inicializar contexto para nuevo usuario
             user_context[phone] = {
@@ -165,15 +167,15 @@ async def receive_message(request: Request):
         name = "WhatsApp User"
         if contacts:
             name = contacts[0].get("profile", {}).get("name", "WhatsApp User")
-            contact = db.query(Contact).filter(Contact.phone == phone).first()
-            if not contact:
+        contact = db.query(Contact).filter(Contact.phone == phone).first()
+        if not contact:
                 contact = Contact(
                 name=name,
                 phone=phone
             )
-            db.add(contact)
-            db.commit()
-            db.refresh(contact)
+        db.add(contact)
+        db.commit()
+        db.refresh(contact)
         # 💾 guardar lead
         create_lead_service(
             db=db,
@@ -182,7 +184,7 @@ async def receive_message(request: Request):
             message=text,
             property_id=None,     # por ahora no detectamos propiedad específica, pero se podría mejorar con NLP o reglas más avanzadas
             source="whatsapp",
-            direction="incoming"   # direction = "outgoing" para mensajes que envía el bot, "incoming" para mensajes que recibe el bot
+            # direction="incoming"   # direction = "outgoing" para mensajes que envía el bot, "incoming" para mensajes que recibe el bot
         )
         
         lead = db.query(Lead)\
@@ -290,7 +292,8 @@ async def receive_message(request: Request):
             
         db.close()
     except Exception as e:
-        print("Error parsing message:", e)
+        print("❌ ERROR:", e)
+        print(traceback.format_exc())
     return {"status": "received"}
 
 

@@ -22,3 +22,4 @@ class Lead(Base):
     property = relationship("Property", back_populates="leads")
     contact_id = Column(String, ForeignKey("contacts.id"))
     contact = relationship("Contact", backref="leads")
+    # direction = Column(String, nullable=True)
