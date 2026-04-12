@@ -129,9 +129,9 @@ def send_help_menu(to):
 # 📥 RECEIVE WEBHOOK
 @router.post("/webhook")
 async def receive_message(request: Request):
-    print("🔥 WEBHOOK HIT")
-    print("BODY COMPLETO:", body)
+    print("🔥🔥🔥 WEBHOOK HIT DIRECTO")
     body = await request.json()
+    print(body)
     try:
         entry = body["entry"][0]
         changes = entry["changes"][0]
@@ -143,7 +143,7 @@ async def receive_message(request: Request):
         # normalizar número Argentina
         # if phone.startswith("549"):
         #     phone = "54" + phone[3:]
-            
+
         if phone not in user_context:   #### inicializar contexto para nuevo usuario
             user_context[phone] = {
                 "operation": None,
