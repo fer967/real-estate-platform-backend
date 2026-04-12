@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request
 import os
 import requests
 from dotenv import load_dotenv
+from app.models.contact import Contact
 from app.models.lead import Lead
 from app.models.property import Property
 from app.services.lead_service import create_lead_service
@@ -24,6 +25,7 @@ load_dotenv()
 router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
 
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
+ACCESS_TOKEN = os.getenv("WHATSAPP_TOKEN")
 
 
 # 🔐 VERIFY WEBHOOK
@@ -162,12 +164,24 @@ async def receive_message(request: Request):
         name = "WhatsApp User"
         if contacts:
             name = contacts[0].get("profile", {}).get("name", "WhatsApp User")
+            contact = db.query(Contact).filter(Contact.phone == phone).first()
+            if not contact:
+                contact = Contact(
+                name=name,
+                phone=phone
+            )
+            db.add(contact)
+            db.commit()
+            db.refresh(contact)
         # 💾 guardar lead
         create_lead_service(
             db=db,
             name=name,
             phone=phone,
-            message=text
+            message=text,
+            property_id=None,     # por ahora no detectamos propiedad específica, pero se podría mejorar con NLP o reglas más avanzadas
+            source="whatsapp",
+            direction="incoming"   # direction = "outgoing" para mensajes que envía el bot, "incoming" para mensajes que recibe el bot
         )
         
         lead = db.query(Lead)\
@@ -179,10 +193,8 @@ async def receive_message(request: Request):
             print("👤 Conversación tomada por humano")
             db.close()
             return {"status": "handled by human"}
-        
         # 🤖 LÓGICA BOT
         # 1️⃣ BOTONES
-        
         if text_lower == "venta":
             user_context[phone]["operation"] = "venta"   ## actualizar contexto
             properties = get_properties_by_operation(db, "venta")
@@ -236,7 +248,6 @@ async def receive_message(request: Request):
             msg = format_properties_message(properties)
             send_whatsapp_message(phone, msg)
 
-
         elif any(word in text_lower for word in ["local", " locales"]):
     # si el mensaje es más largo → NO asumir
             if len(text_lower.split()) > 2:
@@ -258,8 +269,6 @@ async def receive_message(request: Request):
         elif any(word in text_lower for word in ["barrio", "zona", "precio"]):
             send_help_menu(phone)
 
-
-
         elif "asesor" in text_lower:
             lead = db.query(Lead).filter(Lead.phone == phone).first()
             if lead:
@@ -269,10 +278,10 @@ async def receive_message(request: Request):
                 phone,
                 "🙌 Perfecto, un asesor te va a escribir en breve."
             )
-            send_whatsapp_message(
-                "5493516271526",
-                f"📢 Nuevo lead\n\n👤 {name}\n📞 {phone}\n💬 {text}"
-            )
+            # send_whatsapp_message(
+            #     "5493516271526",
+            #     f"📢 Nuevo lead\n\n👤 {name}\n📞 {phone}\n💬 {text}"
+            # )
 
         # 4️⃣ FALLBACK → MENÚ INTERACTIVO
         else:
@@ -282,6 +291,37 @@ async def receive_message(request: Request):
     except Exception as e:
         print("Error parsing message:", e)
     return {"status": "received"}
+
+
+@router.post("/send")
+def send_whatsapp(data: dict):
+    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": data["to"],
+        "type": "text",
+        "text": {"body": data["message"]}
+    }
+    response = requests.post(url, headers=headers, json=payload)
+    return response.json()
+
+
+def send_and_save(db, phone, text, contact):
+    send_whatsapp_message(phone, text)
+    new_msg = Lead(
+        name=contact.name,
+        phone=phone,
+        message=text,
+        contact_id=contact.id,
+        source="whatsapp",
+        status="sent"
+    )
+    db.add(new_msg)
+    db.commit()
 
 
 
