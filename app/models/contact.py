@@ -12,3 +12,4 @@ class Contact(Base):
     email = Column(String, nullable=True)
     hubspot_id = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    status = Column(String, default="bot")  # bot | human

@@ -3,11 +3,9 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 from alembic import context
 from app.core.database import Base
-
-from app.models import *
-# from app.models.property import Property
-# from app.models.lead import Lead
-# from app.models.contact import Contact
+from app.models.property import Property
+from app.models.lead import Lead
+from app.models.contact import Contact
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

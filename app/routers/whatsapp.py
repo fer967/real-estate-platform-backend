@@ -129,9 +129,7 @@ def send_help_menu(to):
 # 📥 RECEIVE WEBHOOK
 @router.post("/webhook")
 async def receive_message(request: Request):
-    print("🔥🔥🔥 WEBHOOK HIT DIRECTO")
     body = await request.json()
-    print(body)
     try:
         entry = body["entry"][0]
         changes = entry["changes"][0]
@@ -140,9 +138,6 @@ async def receive_message(request: Request):
             return {"status": "no message event"}
         message = value["messages"][0]
         phone = message["from"]
-        # normalizar número Argentina
-        # if phone.startswith("549"):
-        #     phone = "54" + phone[3:]
 
         if phone not in user_context:   #### inicializar contexto para nuevo usuario
             user_context[phone] = {
@@ -167,12 +162,17 @@ async def receive_message(request: Request):
         name = "WhatsApp User"
         if contacts:
             name = contacts[0].get("profile", {}).get("name", "WhatsApp User")
+            
         contact = db.query(Contact).filter(Contact.phone == phone).first()
+        if contact and contact.status == "human":
+            return {"status": "handled by human"}
+        
         if not contact:
                 contact = Contact(
                 name=name,
                 phone=phone
             )
+                
         db.add(contact)
         db.commit()
         db.refresh(contact)
@@ -184,7 +184,6 @@ async def receive_message(request: Request):
             message=text,
             property_id=None,     # por ahora no detectamos propiedad específica, pero se podría mejorar con NLP o reglas más avanzadas
             source="whatsapp",
-            # direction="incoming"   # direction = "outgoing" para mensajes que envía el bot, "incoming" para mensajes que recibe el bot
         )
         
         lead = db.query(Lead)\
@@ -196,6 +195,7 @@ async def receive_message(request: Request):
             print("👤 Conversación tomada por humano")
             db.close()
             return {"status": "handled by human"}
+        
         # 🤖 LÓGICA BOT
         # 1️⃣ BOTONES
         if text_lower == "venta":
@@ -281,10 +281,6 @@ async def receive_message(request: Request):
                 phone,
                 "🙌 Perfecto, un asesor te va a escribir en breve."
             )
-            # send_whatsapp_message(
-            #     "5493516271526",
-            #     f"📢 Nuevo lead\n\n👤 {name}\n📞 {phone}\n💬 {text}"
-            # )
 
         # 4️⃣ FALLBACK → MENÚ INTERACTIVO
         else:
