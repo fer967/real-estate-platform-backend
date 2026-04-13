@@ -164,21 +164,14 @@ async def receive_message(request: Request):
             name = contacts[0].get("profile", {}).get("name", "WhatsApp User")
             
         contact = db.query(Contact).filter(Contact.phone == phone).first()
-        # 🚫 SI YA ESTÁ EN HUMANO → NO RESPONDE BOT
-        if contact and contact.status == "human":
-            print("👤 Conversación tomada por humano")
-            db.close()
-            return {"status": "handled by human"}
-        
         if not contact:
-                contact = Contact(
-                name=name,
-                phone=phone
+            contact = Contact(
+            name=name,
+            phone=phone
             )
-
-        db.add(contact)
-        db.commit()
-        db.refresh(contact)
+            db.add(contact)
+            db.commit()
+            db.refresh(contact)
         # 💾 guardar lead
         create_lead_service(
             db=db,
@@ -188,6 +181,12 @@ async def receive_message(request: Request):
             property_id=None,     # por ahora no detectamos propiedad específica, pero se podría mejorar con NLP o reglas más avanzadas
             source="whatsapp",
         )
+        
+        # 🚫 DESPUÉS cortar bot
+        if contact.status == "human":
+            print("👤 Conversación humana - solo guardo mensaje")
+            db.close()
+            return {"status": "saved only"}
         
         lead = db.query(Lead)\
             .filter(Lead.phone == phone)\
@@ -287,17 +286,6 @@ async def receive_message(request: Request):
             )
 
 
-        # elif "asesor" in text_lower:
-        #     lead = db.query(Lead).filter(Lead.phone == phone).first()
-        #     if lead:
-        #         lead.status = "human"
-        #         db.commit()
-        #     send_whatsapp_message(
-        #         phone,
-        #         "🙌 Perfecto, un asesor te va a escribir en breve."
-        #     )
-
-
         # 4️⃣ FALLBACK → MENÚ INTERACTIVO
         else:
             send_help_menu(phone)
@@ -309,21 +297,49 @@ async def receive_message(request: Request):
     return {"status": "received"}
 
 
+from fastapi import HTTPException
+
 @router.post("/send")
 def send_whatsapp(data: dict):
-    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
-    headers = {
-        "Authorization": f"Bearer {ACCESS_TOKEN}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": data["to"],
-        "type": "text",
-        "text": {"body": data["message"]}
-    }
-    response = requests.post(url, headers=headers, json=payload)
-    return response.json()
+    try:
+        to = data.get("to")
+        message = data.get("message")
+        if not to or not message:
+            raise HTTPException(status_code=400, detail="Missing data")
+        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+        headers = {
+            "Authorization": f"Bearer {ACCESS_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": to,
+            "type": "text",
+            "text": {"body": message}
+        }
+        response = requests.post(url, headers=headers, json=payload)
+        print("META RESPONSE:", response.text)
+        return response.json()
+    except Exception as e:
+        print("❌ SEND ERROR:", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# @router.post("/send")
+# def send_whatsapp(data: dict):
+#     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+#     headers = {
+#         "Authorization": f"Bearer {ACCESS_TOKEN}",
+#         "Content-Type": "application/json"
+#     }
+#     payload = {
+#         "messaging_product": "whatsapp",
+#         "to": data["to"],
+#         "type": "text",
+#         "text": {"body": data["message"]}
+#     }
+#     response = requests.post(url, headers=headers, json=payload)
+#     return response.json()
 
 
 def send_and_save(db, phone, text, contact):
