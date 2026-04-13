@@ -164,7 +164,10 @@ async def receive_message(request: Request):
             name = contacts[0].get("profile", {}).get("name", "WhatsApp User")
             
         contact = db.query(Contact).filter(Contact.phone == phone).first()
+        # 🚫 SI YA ESTÁ EN HUMANO → NO RESPONDE BOT
         if contact and contact.status == "human":
+            print("👤 Conversación tomada por humano")
+            db.close()
             return {"status": "handled by human"}
         
         if not contact:
@@ -172,7 +175,7 @@ async def receive_message(request: Request):
                 name=name,
                 phone=phone
             )
-                
+
         db.add(contact)
         db.commit()
         db.refresh(contact)
@@ -191,10 +194,10 @@ async def receive_message(request: Request):
             .order_by(Lead.created_at.desc())\
             .first()
 # 🚫 SI YA LO ESTÁ ATENDIENDO UN HUMANO → NO RESPONDER
-        if lead and lead.status == "human":
-            print("👤 Conversación tomada por humano")
-            db.close()
-            return {"status": "handled by human"}
+        # if lead and lead.status == "human":
+        #     print("👤 Conversación tomada por humano")
+        #     db.close()
+        #     return {"status": "handled by human"}
         
         # 🤖 LÓGICA BOT
         # 1️⃣ BOTONES
@@ -271,16 +274,29 @@ async def receive_message(request: Request):
             
         elif any(word in text_lower for word in ["barrio", "zona", "precio"]):
             send_help_menu(phone)
-
+            
+            
         elif "asesor" in text_lower:
-            lead = db.query(Lead).filter(Lead.phone == phone).first()
-            if lead:
-                lead.status = "human"
+            if contact:
+                contact.status = "human"
+                print("CONTACT STATUS:", contact.status if contact else "NO CONTACT")
                 db.commit()
             send_whatsapp_message(
                 phone,
                 "🙌 Perfecto, un asesor te va a escribir en breve."
             )
+
+
+        # elif "asesor" in text_lower:
+        #     lead = db.query(Lead).filter(Lead.phone == phone).first()
+        #     if lead:
+        #         lead.status = "human"
+        #         db.commit()
+        #     send_whatsapp_message(
+        #         phone,
+        #         "🙌 Perfecto, un asesor te va a escribir en breve."
+        #     )
+
 
         # 4️⃣ FALLBACK → MENÚ INTERACTIVO
         else:
