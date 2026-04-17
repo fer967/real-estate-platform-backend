@@ -72,27 +72,24 @@ def update_hubspot_contact(contact_id, properties: dict):
         "properties": properties
     }
     response = requests.patch(url, headers=headers, json=data)
+    print("🔵 HUBSPOT UPDATE STATUS:", response.status_code)
+    print("🔵 HUBSPOT UPDATE RESPONSE:", response.text)
     return response.json()
 
 
-# def create_note_in_hubspot(contact_id, message):
-#     url = "https://api.hubapi.com/crm/v3/objects/notes"
-#     data = {
-#         "properties": {
-#             "hs_note_body": message
-#         },
-#         "associations": [
-#             {
-#                 "to": {"id": contact_id},
-#                 "types": [
-#                     {
-#                         "associationCategory": "HUBSPOT_DEFINED",
-#                         "associationTypeId": 202
-#                     }
-#                 ]
-#             }
-#         ]
+# def update_hubspot_contact(contact_id, properties: dict):
+#     url = f"https://api.hubapi.com/crm/v3/objects/contacts/{contact_id}"
+#     headers = {
+#         "Authorization": f"Bearer {HUBSPOT_API_KEY}",
+#         "Content-Type": "application/json"
 #     }
-#     requests.post(url, headers=headers, json=data)
+#     data = {
+#         "properties": properties
+#     }
+#     response = requests.patch(url, headers=headers, json=data)
+#     return response.json()
+
+
+
 
 

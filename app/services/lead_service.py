@@ -37,13 +37,10 @@ def create_lead_service(
                 email or f"{phone}@noemail.com",
                 phone
             )
-
             contact.hubspot_id = hubspot_id
-
             update_hubspot_contact(hubspot_id, {
                 "hs_lead_status": "NEW"
             })
-
             db.commit()
         except Exception as e:
             logger.error(f"HubSpot integration failed: {str(e)}")
