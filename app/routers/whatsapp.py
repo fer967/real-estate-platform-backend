@@ -163,15 +163,6 @@ async def receive_message(request: Request):
         if contacts:
             name = contacts[0].get("profile", {}).get("name", "WhatsApp User")
 
-        contact = db.query(Contact).filter(Contact.phone == phone).first()
-        # if not contact:
-        #     contact = Contact(
-        #     name=name,
-        #     phone=phone
-        #     )
-        #     db.add(contact)
-        #     db.commit()
-        #     db.refresh(contact)
 
         # 💾 guardar lead
         create_lead_service(
@@ -182,6 +173,8 @@ async def receive_message(request: Request):
             property_id=None,     # por ahora no detectamos propiedad específica, pero se podría mejorar con NLP o reglas más avanzadas
             source="whatsapp",
         )
+        
+        contact = db.query(Contact).filter(Contact.phone == phone).first()
         
         # 🚫 DESPUÉS cortar bot
         if contact.status == "human":
