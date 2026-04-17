@@ -1,9 +1,9 @@
 import traceback
-
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, HTTPException  
 import os
 import requests
 from dotenv import load_dotenv
+from app.integrations.hubspot import update_hubspot_contact
 from app.models.contact import Contact
 from app.models.lead import Lead
 from app.models.property import Property
@@ -162,16 +162,17 @@ async def receive_message(request: Request):
         name = "WhatsApp User"
         if contacts:
             name = contacts[0].get("profile", {}).get("name", "WhatsApp User")
-            
+
         contact = db.query(Contact).filter(Contact.phone == phone).first()
-        if not contact:
-            contact = Contact(
-            name=name,
-            phone=phone
-            )
-            db.add(contact)
-            db.commit()
-            db.refresh(contact)
+        # if not contact:
+        #     contact = Contact(
+        #     name=name,
+        #     phone=phone
+        #     )
+        #     db.add(contact)
+        #     db.commit()
+        #     db.refresh(contact)
+
         # 💾 guardar lead
         create_lead_service(
             db=db,
@@ -188,15 +189,15 @@ async def receive_message(request: Request):
             db.close()
             return {"status": "saved only"}
         
+        if contact.hubspot_id:
+            update_hubspot_contact(contact.hubspot_id, {
+                "hs_lead_status": "IN_PROGRESS"
+            })
+        
         lead = db.query(Lead)\
             .filter(Lead.phone == phone)\
             .order_by(Lead.created_at.desc())\
             .first()
-# 🚫 SI YA LO ESTÁ ATENDIENDO UN HUMANO → NO RESPONDER
-        # if lead and lead.status == "human":
-        #     print("👤 Conversación tomada por humano")
-        #     db.close()
-        #     return {"status": "handled by human"}
         
         # 🤖 LÓGICA BOT
         # 1️⃣ BOTONES
@@ -270,10 +271,8 @@ async def receive_message(request: Request):
             msg = format_properties_message(properties)
             send_whatsapp_message(phone, msg)
             
-            
         elif any(word in text_lower for word in ["barrio", "zona", "precio"]):
             send_help_menu(phone)
-            
             
         elif "asesor" in text_lower:
             if contact:
@@ -285,7 +284,6 @@ async def receive_message(request: Request):
                 "🙌 Perfecto, un asesor te va a escribir en breve."
             )
 
-
         # 4️⃣ FALLBACK → MENÚ INTERACTIVO
         else:
             send_help_menu(phone)
@@ -296,8 +294,6 @@ async def receive_message(request: Request):
         print(traceback.format_exc())
     return {"status": "received"}
 
-
-from fastapi import HTTPException
 
 @router.post("/send")
 def send_whatsapp(data: dict):
@@ -323,23 +319,6 @@ def send_whatsapp(data: dict):
     except Exception as e:
         print("❌ SEND ERROR:", e)
         raise HTTPException(status_code=500, detail=str(e))
-
-
-# @router.post("/send")
-# def send_whatsapp(data: dict):
-#     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
-#     headers = {
-#         "Authorization": f"Bearer {ACCESS_TOKEN}",
-#         "Content-Type": "application/json"
-#     }
-#     payload = {
-#         "messaging_product": "whatsapp",
-#         "to": data["to"],
-#         "type": "text",
-#         "text": {"body": data["message"]}
-#     }
-#     response = requests.post(url, headers=headers, json=payload)
-#     return response.json()
 
 
 def send_and_save(db, phone, text, contact):

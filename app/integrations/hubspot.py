@@ -34,11 +34,14 @@ def create_hubspot_contact(name, email, phone):
             )
     except requests.exceptions.RequestException as e:
         logger.error(f"HubSpot connection error: {str(e)}")
-        
 
 
 def create_note_in_hubspot(contact_id, message):
     url = "https://api.hubapi.com/crm/v3/objects/notes"
+    headers = {
+        "Authorization": f"Bearer {HUBSPOT_API_KEY}",
+        "Content-Type": "application/json"
+    }
     data = {
         "properties": {
             "hs_note_body": message
@@ -55,7 +58,41 @@ def create_note_in_hubspot(contact_id, message):
             }
         ]
     }
-    requests.post(url, headers=headers, json=data)
+    response = requests.post(url, headers=headers, json=data)
+    return response.json()
 
+
+def update_hubspot_contact(contact_id, properties: dict):
+    url = f"https://api.hubapi.com/crm/v3/objects/contacts/{contact_id}"
+    headers = {
+        "Authorization": f"Bearer {HUBSPOT_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "properties": properties
+    }
+    response = requests.patch(url, headers=headers, json=data)
+    return response.json()
+
+
+# def create_note_in_hubspot(contact_id, message):
+#     url = "https://api.hubapi.com/crm/v3/objects/notes"
+#     data = {
+#         "properties": {
+#             "hs_note_body": message
+#         },
+#         "associations": [
+#             {
+#                 "to": {"id": contact_id},
+#                 "types": [
+#                     {
+#                         "associationCategory": "HUBSPOT_DEFINED",
+#                         "associationTypeId": 202
+#                     }
+#                 ]
+#             }
+#         ]
+#     }
+#     requests.post(url, headers=headers, json=data)
 
 
