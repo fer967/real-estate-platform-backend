@@ -1,6 +1,8 @@
 from sqlalchemy.orm import Session
+from app.models import contact
+from app.models import contact
 from app.models.lead import Lead
-from app.integrations.hubspot import create_hubspot_contact, update_hubspot_contact
+from app.integrations.hubspot import create_hubspot_contact, get_hubspot_contact, update_hubspot_contact
 from app.core.logger import logger
 from app.models.contact import Contact
 
@@ -28,32 +30,45 @@ def create_lead_service(
         db.add(contact)
         db.commit()
         db.refresh(contact)
+        
+        
+    hubspot_exists = False
+    if contact.hubspot_id:
+        hubspot_exists = get_hubspot_contact(contact.hubspot_id)
+    if not contact.hubspot_id or not hubspot_exists:
+        print("🔄 RECREATING HUBSPOT CONTACT")
+        hubspot_id = create_hubspot_contact(
+            name,
+            email or f"{phone}@noemail.com",
+            phone
+        )
+        contact.hubspot_id = hubspot_id
+        update_hubspot_contact(hubspot_id, {
+            "hs_lead_status": "NEW"
+        })
+        db.commit()
+
 
     # 🔗 crear en HubSpot si no tiene ID
-    print("🟡 CONTACT HUBSPOT ID:", contact.hubspot_id)
-    if not contact.hubspot_id or contact.hubspot_id == "":
-        try:
-            hubspot_id = create_hubspot_contact(
-                name,
-                email or f"{phone}@noemail.com",
-                phone
-            )
+    # print("🟡 CONTACT HUBSPOT ID:", contact.hubspot_id)
+    # if not contact.hubspot_id or contact.hubspot_id == "":
+    #     try:
+    #         hubspot_id = create_hubspot_contact(
+    #             name,
+    #             email or f"{phone}@noemail.com",
+    #             phone
+    #         )
+    #         print("🟢 HUBSPOT CREATED ID:", hubspot_id)
+    #         contact.hubspot_id = hubspot_id
+    #         # 🔥 importante: ver respuesta
+    #         response = update_hubspot_contact(hubspot_id, {
+    #             "hs_lead_status": "NEW"
+    #         })
+    #         print("🟣 HUBSPOT UPDATE:", response)
+    #         db.commit()
+    #     except Exception as e:
+    #         logger.error(f"HubSpot integration failed: {str(e)}")
 
-            print("🟢 HUBSPOT CREATED ID:", hubspot_id)
-
-            contact.hubspot_id = hubspot_id
-
-            # 🔥 importante: ver respuesta
-            response = update_hubspot_contact(hubspot_id, {
-                "hs_lead_status": "NEW"
-            })
-
-            print("🟣 HUBSPOT UPDATE:", response)
-
-            db.commit()
-
-        except Exception as e:
-            logger.error(f"HubSpot integration failed: {str(e)}")
 
     # 💾 guardar lead
     new_lead = Lead(

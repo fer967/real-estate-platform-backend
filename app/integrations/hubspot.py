@@ -1,4 +1,3 @@
-from wsgiref import headers
 import requests
 import os
 from dotenv import load_dotenv
@@ -75,6 +74,16 @@ def update_hubspot_contact(contact_id, properties: dict):
     print("🔵 HUBSPOT UPDATE STATUS:", response.status_code)
     print("🔵 HUBSPOT UPDATE RESPONSE:", response.text)
     return response.json()
+
+
+def get_hubspot_contact(contact_id):
+    url = f"https://api.hubapi.com/crm/v3/objects/contacts/{contact_id}"
+    headers = {
+        "Authorization": f"Bearer {HUBSPOT_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    response = requests.get(url, headers=headers)
+    return response.status_code == 200
 
 
 # def update_hubspot_contact(contact_id, properties: dict):
