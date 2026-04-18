@@ -57,7 +57,8 @@ def create_lead_service(
         message=message,
         email=email,
         property_id=property_id,
-        source=source
+        source=source or "whatsapp",
+        status="new"
     )
 
     db.add(new_lead)

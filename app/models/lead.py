@@ -17,9 +17,8 @@ class Lead(Base):
     message = Column(String, nullable=True)
     property_id = Column(UUID(as_uuid=True), ForeignKey("properties.id"))
     source = Column(String)  # web, whatsapp, bot
-    status = Column(String, default="new")
+    status = Column(String, default="new", nullable=False)  # new, contacted, qualified, lost
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     property = relationship("Property", back_populates="leads")
     contact_id = Column(String, ForeignKey("contacts.id"))
     contact = relationship("Contact", backref="leads")
-    # direction = Column(String, nullable=True)
