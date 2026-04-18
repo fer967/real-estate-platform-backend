@@ -1,9 +1,6 @@
 from fastapi import FastAPI
-from app.routers import properties, leads
-from app.routers import dashboard
-from app.routers import whatsapp
+from app.routers import properties, leads, dashboard, whatsapp, idecor, tasaciones
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import idecor
 
 app = FastAPI(title="Real Estate Platform API")
 
@@ -25,6 +22,7 @@ app.include_router(leads.router)
 app.include_router(whatsapp.router)
 app.include_router(dashboard.router)
 app.include_router(idecor.router)
+app.include_router(tasaciones.router)
 
 @app.get("/")
 def root():

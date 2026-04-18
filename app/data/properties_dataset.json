@@ -1,0 +1,26 @@
+[
+    {
+        "city": "Cordoba",
+        "property_type": "casa",
+        "price": 120000,
+        "surface": 100
+    },
+    {
+        "city": "Cordoba",
+        "property_type": "casa",
+        "price": 150000,
+        "surface": 130
+    },
+    {
+        "city": "Cordoba",
+        "property_type": "departamento",
+        "price": 80000,
+        "surface": 60
+    },
+    {
+        "city": "Cordoba",
+        "property_type": "departamento",
+        "price": 95000,
+        "surface": 70
+    }
+]
