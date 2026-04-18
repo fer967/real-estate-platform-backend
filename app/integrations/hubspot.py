@@ -71,6 +71,8 @@ def update_hubspot_contact(contact_id, properties: dict):
         "properties": properties
     }
     response = requests.patch(url, headers=headers, json=data)
+    logger.info("🔄 RECREATING HUBSPOT CONTACT")
+    print("🔄 RECREATING HUBSPOT CONTACT", flush=True)
     print("🔵 HUBSPOT UPDATE STATUS:", response.status_code)
     print("🔵 HUBSPOT UPDATE RESPONSE:", response.text)
     return response.json()
