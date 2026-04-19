@@ -27,11 +27,7 @@ def analysis_from_lead(message: str):
     return result
 
 
-# @router.get("/from-lead")
-# def analysis_from_lead(message: str):
-#     city, property_type = extract_data_from_message(message)
-#     result = get_market_analysis(city, property_type)
-#     return result
+
 
 
 
