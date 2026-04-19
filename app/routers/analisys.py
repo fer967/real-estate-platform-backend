@@ -6,7 +6,7 @@ from app.services.analysis_service import (
 
 router = APIRouter(prefix="/analysis", tags=["analysis"])
 
-@router.get("/analysis/from-lead")
+@router.get("/from-lead")
 def analysis_from_lead(message: str):
     city, property_type = extract_data_from_message(message)
     result = get_market_analysis(city, property_type)
