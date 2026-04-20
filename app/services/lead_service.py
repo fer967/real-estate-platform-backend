@@ -64,7 +64,6 @@ def create_lead_service(
     db.add(new_lead)
     db.commit()
     db.refresh(new_lead)
-
     return new_lead
 
 

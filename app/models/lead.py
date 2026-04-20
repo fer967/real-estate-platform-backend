@@ -4,8 +4,8 @@ from sqlalchemy.sql import func
 import uuid
 from app.core.database import Base
 from sqlalchemy.orm import relationship
-from sqlalchemy import ForeignKey
-from sqlalchemy.orm import relationship
+from datetime import datetime
+
 
 class Lead(Base):
     __tablename__ = "leads"
@@ -18,7 +18,7 @@ class Lead(Base):
     property_id = Column(UUID(as_uuid=True), ForeignKey("properties.id"))
     source = Column(String)  # web, whatsapp, bot
     status = Column(String, default="new", nullable=False)  # new, contacted, qualified, lost
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
     property = relationship("Property", back_populates="leads")
     contact_id = Column(String, ForeignKey("contacts.id"))
     contact = relationship("Contact", backref="leads")

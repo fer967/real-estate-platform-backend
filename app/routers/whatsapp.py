@@ -56,7 +56,7 @@ def send_interactive_menu(to: str):
         "interactive": {
             "type": "button",
             "body": {
-                "text": "Hola 👋 ¿Qué te interesa?"
+                "text": "Hola 👋 Gracias por comunicarte con nosotros, que estas buscando?"
             },
             "action": {
                 "buttons": [
@@ -64,21 +64,21 @@ def send_interactive_menu(to: str):
                         "type": "reply",
                         "reply": {
                             "id": "venta",
-                            "title": "Ver ventas"
+                            "title": "Ver propiedades en venta"
                         }
                     },
                     {
                         "type": "reply",
                         "reply": {
                             "id": "alquiler",
-                            "title": "Ver alquileres"
+                            "title": "Ver propiedades en alquiler"
                         }
                     },
                     {
                         "type": "reply",
                         "reply": {
                             "id": "tasacion",
-                            "title": "Tasación"
+                            "title": "Quiero tasar mi propiedad"
                         }
                     }
                 ]
@@ -187,10 +187,6 @@ async def receive_message(request: Request):
                 "hs_lead_status": "IN_PROGRESS"
             })
         
-        lead = db.query(Lead)\
-            .filter(Lead.phone == phone)\
-            .order_by(Lead.created_at.desc())\
-            .first()
         
         # 🤖 LÓGICA BOT
         # 1️⃣ BOTONES
