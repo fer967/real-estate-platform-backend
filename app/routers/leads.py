@@ -20,11 +20,17 @@ def get_leads_by_contact(contact_id: str, db: Session = Depends(get_db)):
         .filter(Lead.contact_id == contact_id)\
         .order_by(Lead.created_at.asc())\
         .all()
-        
-@router.get("/leads", response_model=list[LeadResponse])
+
+
+@router.get("/")
 def get_leads(db: Session = Depends(get_db)):
-    leads = db.query(Lead).order_by(Lead.created_at.desc()).all()
+    leads = db.query(Lead).options(joinedload(Lead.property)).all()
     return leads
+
+# @router.get("/", response_model=list[LeadResponse])
+# def get_leads(db: Session = Depends(get_db)):
+#     leads = db.query(Lead).order_by(Lead.created_at.desc()).all()
+#     return leads
 
 
 # @router.get("/", response_model=list[LeadResponse])
@@ -62,16 +68,9 @@ def update_lead_status(lead_id: str, status: str, db: Session = Depends(get_db))
     return lead
 
 
-# @router.get("/", response_model=list[LeadResponse])
-# def get_leads(db: Session = Depends(get_db)):
-#     leads = db.query(Lead).order_by(Lead.created_at.desc()).all()
-#     return leads
 
 
-# @router.get("/")
-# def get_leads(db: Session = Depends(get_db)):
-#     leads = db.query(Lead).options(joinedload(Lead.property)).all()
-#     return leads
+
 
 
 
