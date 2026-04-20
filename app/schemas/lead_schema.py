@@ -2,6 +2,15 @@ from pydantic import BaseModel, EmailStr
 from typing import Optional
 from datetime import datetime
 
+
+class LeadCreate(BaseModel):
+    name: str
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    message: Optional[str] = None
+    property_id: Optional[str] = None
+    source: Optional[str] = "web"
+
 class LeadResponse(BaseModel):
     id: str
     name: str
@@ -17,10 +26,3 @@ class LeadResponse(BaseModel):
         from_attributes = True   # 🔥 importante (antes orm_mode)
 
 
-class LeadCreate(BaseModel):
-    name: str
-    email: Optional[EmailStr] = None
-    phone: Optional[str] = None
-    message: Optional[str] = None
-    property_id: Optional[str] = None
-    source: Optional[str] = "web"

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.contact import Contact
 from app.models.lead import Lead
@@ -22,20 +22,9 @@ def get_leads_by_contact(contact_id: str, db: Session = Depends(get_db)):
         .all()
 
 
-@router.get("/")
+@router.get("/", response_model=list[LeadResponse])
 def get_leads(db: Session = Depends(get_db)):
-    leads = db.query(Lead).options(joinedload(Lead.property)).all()
-    return leads
-
-# @router.get("/", response_model=list[LeadResponse])
-# def get_leads(db: Session = Depends(get_db)):
-#     leads = db.query(Lead).order_by(Lead.created_at.desc()).all()
-#     return leads
-
-
-# @router.get("/", response_model=list[LeadResponse])
-# def get_leads(db: Session = Depends(get_db)):
-#     return db.query(Lead).order_by(Lead.created_at.desc()).all()
+    return db.query(Lead).order_by(Lead.created_at.desc()).all()
 
 
 @router.get("/{lead_id}")
@@ -66,6 +55,18 @@ def update_lead_status(lead_id: str, status: str, db: Session = Depends(get_db))
     db.commit()
     db.refresh(lead)
     return lead
+
+
+# @router.get("/")
+# def get_leads(db: Session = Depends(get_db)):
+#     leads = db.query(Lead).options(joinedload(Lead.property)).all()
+#     return leads
+
+# @router.get("/", response_model=list[LeadResponse])
+# def get_leads(db: Session = Depends(get_db)):
+#     leads = db.query(Lead).order_by(Lead.created_at.desc()).all()
+#     return leads
+
 
 
 
