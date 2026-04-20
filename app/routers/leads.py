@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.database import get_db
 from app.models.contact import Contact
 from app.models.lead import Lead
-from app.schemas.lead_schema import LeadCreate
+from app.schemas.lead_schema import LeadCreate, LeadResponse
 from app.services.lead_service import create_lead_service
 from fastapi import HTTPException
 
@@ -22,10 +22,16 @@ def get_leads_by_contact(contact_id: str, db: Session = Depends(get_db)):
         .all()
 
 
-@router.get("/")
+@router.get("/", response_model=list[LeadResponse])
 def get_leads(db: Session = Depends(get_db)):
-    leads = db.query(Lead).options(joinedload(Lead.property)).all()
+    leads = db.query(Lead).order_by(Lead.created_at.desc()).all()
     return leads
+
+
+# @router.get("/")
+# def get_leads(db: Session = Depends(get_db)):
+#     leads = db.query(Lead).options(joinedload(Lead.property)).all()
+#     return leads
 
 @router.get("/{lead_id}")
 def get_lead(lead_id: str, db: Session = Depends(get_db)):
