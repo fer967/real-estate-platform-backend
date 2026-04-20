@@ -21,7 +21,7 @@ def get_leads_by_contact(contact_id: str, db: Session = Depends(get_db)):
         .order_by(Lead.created_at.asc())\
         .all()
         
-@router.get("/", response_model=list[LeadResponse])
+@router.get("/leads", response_model=list[LeadResponse])
 def get_leads(db: Session = Depends(get_db)):
     leads = db.query(Lead).order_by(Lead.created_at.desc()).all()
     return leads
