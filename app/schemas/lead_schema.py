@@ -18,7 +18,7 @@ class LeadResponse(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     message: Optional[str] = None
-    property_id: Optional[str] = None
+    property_id: Optional[UUID] = None
     source: Optional[str] = None
     status: str
     created_at: datetime
