@@ -117,7 +117,7 @@ def send_property_type_menu(to, operation):
                 "buttons": [
                     {"type": "reply", "reply": {"id": "departamento", "title": "Departamento"}},
                     {"type": "reply", "reply": {"id": "casa", "title": "Casa"}},
-                    {"type": "reply", "reply": {"id": "terreno", "title": "Lote"}},
+                    # {"type": "reply", "reply": {"id": "terreno", "title": "Lote"}},
                     {"type": "reply", "reply": {"id": "local", "title": "Local"}}
                 ]
             }
@@ -164,6 +164,7 @@ def send_help_menu(to):
     requests.post(url, headers=headers, json=payload)
 
 
+processed_messages = set()
 # 📥 RECEIVE WEBHOOK
 @router.post("/webhook")
 async def receive_message(request: Request):
@@ -175,6 +176,13 @@ async def receive_message(request: Request):
         if "messages" not in value:
             return {"status": "no message event"}
         message = value["messages"][0]
+        
+        message_id = message.get("id")
+        if message_id in processed_messages:
+            print("⚠️ Mensaje duplicado ignorado")
+            return {"status": "duplicate"}
+        processed_messages.add(message_id)
+        
         phone = message["from"]
 
         if phone not in user_context:   #### inicializar contexto para nuevo usuario
