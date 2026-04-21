@@ -55,32 +55,70 @@ def send_interactive_menu(to: str):
         "type": "interactive",
         "interactive": {
             "type": "button",
+
             "body": {
-                "text": "Hola 👋 Gracias por comunicarte con nosotros, que estas buscando?"
+                "text": "Hola 👋 Soy tu asistente inmobiliario\n\n¿En qué puedo ayudarte?"
             },
             "action": {
                 "buttons": [
                     {
                         "type": "reply",
                         "reply": {
-                            "id": "venta",
-                            "title": "Ver propiedades en venta"
+                            "id": "comprar",
+                            "title": "Comprar"
                         }
                     },
                     {
                         "type": "reply",
                         "reply": {
-                            "id": "alquiler",
-                            "title": "Ver propiedades en alquiler"
+                            "id": "alquilar",
+                            "title": "Alquilar"
                         }
                     },
                     {
                         "type": "reply",
                         "reply": {
-                            "id": "tasacion",
-                            "title": "Quiero tasar mi propiedad"
+                            "id": "vender",
+                            "title": "Vender"
+                        }
+                    },
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "asesor",
+                            "title": "Hablar con asesor"
                         }
                     }
+                ]
+            }
+        }
+    }
+
+    requests.post(url, headers=headers, json=payload)
+
+
+
+def send_property_type_menu(to, operation):
+    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+    headers = {
+        "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": to,
+        "type": "interactive",
+        "interactive": {
+            "type": "button",
+            "body": {
+                "text": f"¿Qué tipo de propiedad buscás para {operation}?"
+            },
+            "action": {
+                "buttons": [
+                    {"type": "reply", "reply": {"id": "departamento", "title": "Departamento"}},
+                    {"type": "reply", "reply": {"id": "casa", "title": "Casa"}},
+                    {"type": "reply", "reply": {"id": "terreno", "title": "Lote"}},
+                    {"type": "reply", "reply": {"id": "local", "title": "Local"}}
                 ]
             }
         }
@@ -101,7 +139,7 @@ def send_help_menu(to):
         "interactive": {
             "type": "button",
             "body": {
-                "text": "No entendí del todo 🤔\n\n¿Querés ver opciones o hablar con un asesor?"
+                "text": "¿Querés ver opciones o hablar con un asesor?"
             },
             "action": {
                 "buttons": [
@@ -190,18 +228,20 @@ async def receive_message(request: Request):
         
         # 🤖 LÓGICA BOT
         # 1️⃣ BOTONES
-        if text_lower == "venta":
-            user_context[phone]["operation"] = "venta"   ## actualizar contexto
-            properties = get_properties_by_operation(db, "venta")
-            msg = format_properties_message(properties)
-            send_whatsapp_message(phone, f"🏠 *Propiedades en venta:*\n\n{msg}")
-            
-        elif text_lower == "alquiler":
+        if text_lower in ["comprar"]:
+            user_context[phone]["operation"] = "venta"
+            send_property_type_menu(phone, "compra")
+
+        elif text_lower in ["alquilar"]:
             user_context[phone]["operation"] = "alquiler"
-            user_context[phone]["type"] = None  # reset tipo
-            properties = get_properties_by_operation(db, "alquiler")
-            msg = format_properties_message(properties)
-            send_whatsapp_message(phone, f"🔑 *Propiedades en alquiler:*\n\n{msg}")
+            send_property_type_menu(phone, "alquiler")
+        
+        
+        elif text_lower == "vender":
+            send_whatsapp_message(
+                phone,
+                "📊 *Venta de propiedad*\n\nPodés solicitar una tasación o hablar con un asesor.\n\nEscribí *tasar* o *asesor*"
+            )
             
         elif text_lower == "tasacion":
             send_whatsapp_message(
@@ -277,6 +317,11 @@ async def receive_message(request: Request):
         else:
             send_help_menu(phone)
             
+            user_context[phone] = {   # ver si va aca
+                "operation": None,
+                "type": None
+            }
+            
         db.close()
     except Exception as e:
         print("❌ ERROR:", e)
@@ -322,6 +367,53 @@ def send_and_save(db, phone, text, contact):
     )
     db.add(new_msg)
     db.commit()
+    
+    
+    
+    #         "body": {
+    #             "text": "Hola 👋 Gracias por comunicarte con nosotros, que estas buscando?"
+    #         },
+    #         "action": {
+    #             "buttons": [
+    #                 {
+    #                     "type": "reply",
+    #                     "reply": {
+    #                         "id": "venta",
+    #                         "title": "Ver propiedades en venta"
+    #                     }
+    #                 },
+    #                 {
+    #                     "type": "reply",
+    #                     "reply": {
+    #                         "id": "alquiler",
+    #                         "title": "Ver propiedades en alquiler"
+    #                     }
+    #                 },
+    #                 {
+    #                     "type": "reply",
+    #                     "reply": {
+    #                         "id": "tasacion",
+    #                         "title": "Quiero tasar mi propiedad"
+    #                     }
+    #                 }
+    #             ]
+    #         }
+    #     }
+    # }
+    
+    
+    # if text_lower == "venta":
+        #     user_context[phone]["operation"] = "venta"   ## actualizar contexto
+        #     properties = get_properties_by_operation(db, "venta")
+        #     msg = format_properties_message(properties)
+        #     send_whatsapp_message(phone, f"🏠 *Propiedades en venta:*\n\n{msg}")
+            
+        # elif text_lower == "alquiler":
+        #     user_context[phone]["operation"] = "alquiler"
+        #     user_context[phone]["type"] = None  # reset tipo
+        #     properties = get_properties_by_operation(db, "alquiler")
+        #     msg = format_properties_message(properties)
+        #     send_whatsapp_message(phone, f"🔑 *Propiedades en alquiler:*\n\n{msg}")
 
 
 
