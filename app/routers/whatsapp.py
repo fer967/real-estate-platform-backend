@@ -81,13 +81,13 @@ def send_interactive_menu(to: str):
                             "title": "Vender"
                         }
                     },
-                    {
-                        "type": "reply",
-                        "reply": {
-                            "id": "asesor",
-                            "title": "Hablar con asesor"
-                        }
-                    }
+                    # {
+                    #     "type": "reply",
+                    #     "reply": {
+                    #         "id": "asesor",
+                    #         "title": "Hablar con asesor"
+                    #     }
+                    # }
                 ]
             }
         }
