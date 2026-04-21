@@ -5,7 +5,21 @@ from app.models.contact import Contact
 from app.models.lead import Lead
 from app.schemas.lead_schema import LeadCreate, LeadResponse
 from app.services.lead_service import create_lead_service
-from fastapi import HTTPException
+from fastapi import HTTPException, Depends
+
+from app.routers.security import SECRET_KEY, ALGORITHM
+from fastapi.security import HTTPBearer
+from jose import jwt, JWTError
+
+security = HTTPBearer()
+
+def verify_token(credentials=Depends(security)):
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except JWTError:
+        raise HTTPException(status_code=403, detail="Token inválido")
 
 router = APIRouter(prefix="/leads", tags=["leads"])
 
@@ -22,9 +36,15 @@ def get_leads_by_contact(contact_id: str, db: Session = Depends(get_db)):
         .all()
 
 
+
 @router.get("/", response_model=list[LeadResponse])
-def get_leads(db: Session = Depends(get_db)):
+def get_leads(db: Session = Depends(get_db), user=Depends(verify_token)):
     return db.query(Lead).order_by(Lead.created_at.desc()).all()
+
+# @router.get("/", response_model=list[LeadResponse])
+# def get_leads(db: Session = Depends(get_db)):
+#     return db.query(Lead).order_by(Lead.created_at.desc()).all()
+
 
 
 @router.get("/{lead_id}")
@@ -57,15 +77,6 @@ def update_lead_status(lead_id: str, status: str, db: Session = Depends(get_db))
     return lead
 
 
-# @router.get("/")
-# def get_leads(db: Session = Depends(get_db)):
-#     leads = db.query(Lead).options(joinedload(Lead.property)).all()
-#     return leads
-
-# @router.get("/", response_model=list[LeadResponse])
-# def get_leads(db: Session = Depends(get_db)):
-#     leads = db.query(Lead).order_by(Lead.created_at.desc()).all()
-#     return leads
 
 
 
