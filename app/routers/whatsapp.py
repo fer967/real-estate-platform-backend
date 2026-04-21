@@ -55,7 +55,6 @@ def send_interactive_menu(to: str):
         "type": "interactive",
         "interactive": {
             "type": "button",
-
             "body": {
                 "text": "Hola 👋 Soy tu asistente inmobiliario\n\n¿En qué puedo ayudarte?"
             },
@@ -316,10 +315,10 @@ async def receive_message(request: Request):
         else:
             send_interactive_menu(phone)
             
-            user_context[phone] = {   # ver si va aca
-                "operation": None,
-                "type": None
-            }
+            # user_context[phone] = {   
+            #     "operation": None,
+            #     "type": None
+            # }
             
         db.close()
     except Exception as e:
