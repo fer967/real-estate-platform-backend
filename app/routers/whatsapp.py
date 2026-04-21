@@ -1,4 +1,5 @@
 import traceback
+from urllib import response
 from fastapi import APIRouter, Request, HTTPException  
 import os
 import requests
@@ -92,7 +93,9 @@ def send_interactive_menu(to: str):
             }
         }
     }
-    requests.post(url, headers=headers, json=payload)
+    response = requests.post(url, headers=headers, json=payload)
+    print("📤 STATUS:", response.status_code)
+    print("📤 RESPONSE:", response.text)
 
 
 def send_property_type_menu(to, operation):
