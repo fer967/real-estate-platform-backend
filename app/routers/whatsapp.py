@@ -191,8 +191,11 @@ async def receive_message(request: Request):
         else:
             text = message.get("text", {}).get("body", "")
             text_lower = text.lower().strip()
-        print("Cliente:", phone)
-        print("Mensaje:", text)
+
+            # ✅ ACÁ
+        print("TEXT LOWER:", text_lower)
+        print("TEXT:", text)
+
         db = SessionLocal()
         # 👤 obtener nombre real
         contacts = value.get("contacts", [])
@@ -211,10 +214,6 @@ async def receive_message(request: Request):
         )
         
         contact = db.query(Contact).filter(Contact.phone == phone).first()
-        if not contact.last_step:
-            send_interactive_menu(phone)
-            contact.last_step = "menu"
-            db.commit()
         
         # 🚫 DESPUÉS cortar bot
         if contact.status == "human":
