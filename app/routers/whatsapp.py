@@ -124,6 +124,8 @@ def send_property_type_menu(to, operation):
         }
     }
     requests.post(url, headers=headers, json=payload)
+    print("📤 PROPERTY MENU STATUS:", response.status_code)
+    print("📤 PROPERTY MENU RESPONSE:", response.text)
 
 
 def send_help_menu(to):
