@@ -180,7 +180,7 @@ async def receive_message(request: Request):
                 "type": None
             }
             send_interactive_menu(phone)
-            return {"status": "menu sent"}
+            
             
         # 👇 detectar botones o texto
         interactive = message.get("interactive", {})
@@ -211,6 +211,10 @@ async def receive_message(request: Request):
         )
         
         contact = db.query(Contact).filter(Contact.phone == phone).first()
+        if not contact.last_step:
+            send_interactive_menu(phone)
+            contact.last_step = "menu"
+            db.commit()
         
         # 🚫 DESPUÉS cortar bot
         if contact.status == "human":
@@ -314,11 +318,6 @@ async def receive_message(request: Request):
         # 4️⃣ FALLBACK → MENÚ INTERACTIVO
         else:
             send_interactive_menu(phone)
-            
-            # user_context[phone] = {   
-            #     "operation": None,
-            #     "type": None
-            # }
             
         db.close()
     except Exception as e:
