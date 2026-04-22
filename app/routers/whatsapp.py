@@ -21,6 +21,10 @@ from app.services.property_service import (
     get_properties_by_property_type
 )
 
+from time import time
+
+recent_messages = {}
+
 user_context = {}   ## contexto simple en memoria para cada usuario (se pierde si se reinicia el servidor, pero es suficiente para este ejemplo)
 
 load_dotenv()
@@ -184,26 +188,24 @@ async def receive_message(request: Request):
             print("⚠️ Mensaje duplicado ignorado")
             return {"status": "duplicate"}
         processed_messages.add(message_id)
-        
-        phone = message["from"]
 
-        if phone not in user_context:   #### inicializar contexto para nuevo usuario
-            user_context[phone] = {
-                "operation": None,
-                "type": None
-            }
-            send_interactive_menu(phone)
-            
-            
-        # 👇 detectar botones o texto
+        phone = message["from"]
+        # 👇 obtener texto ANTES
         interactive = message.get("interactive", {})
         button_reply = interactive.get("button_reply", {})
         if button_reply:
             text = button_reply.get("title", "")
-            text_lower = button_reply.get("id", "").lower()
         else:
             text = message.get("text", {}).get("body", "")
-            text_lower = text.lower().strip()
+        text_lower = text.lower().strip()
+        # 🔥 clave única
+        key = f"{phone}:{text_lower}"
+        now = time()
+        # si ya existe y fue hace menos de 5 segundos → duplicado
+        if key in recent_messages and now - recent_messages[key] < 5:
+            print("⚠️ DUPLICADO REAL IGNORADO:", key)
+            return {"status": "duplicate"}
+        recent_messages[key] = now
 
             # ✅ ACÁ
         print("TEXT LOWER:", text_lower)
