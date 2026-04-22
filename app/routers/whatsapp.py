@@ -1,5 +1,4 @@
 import traceback
-from urllib import response
 from fastapi import APIRouter, Request, HTTPException  
 import os
 import requests
@@ -83,13 +82,13 @@ def send_interactive_menu(to: str):
                             "title": "Vender"
                         }
                     },
-                    # {
-                    #     "type": "reply",
-                    #     "reply": {
-                    #         "id": "asesor",
-                    #         "title": "Hablar con asesor"
-                    #     }
-                    # }
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "asesor",
+                            "title": "Hablar con asesor"
+                        }
+                    }
                 ]
             }
         }
@@ -118,15 +117,15 @@ def send_property_type_menu(to, operation):
                 "buttons": [
                     {"type": "reply", "reply": {"id": "departamento", "title": "Departamento"}},
                     {"type": "reply", "reply": {"id": "casa", "title": "Casa"}},
-                    # {"type": "reply", "reply": {"id": "terreno", "title": "Lote"}},
+                    {"type": "reply", "reply": {"id": "terreno", "title": "Lote"}},
                     {"type": "reply", "reply": {"id": "local", "title": "Local"}}
                 ]
             }
         }
     }
     requests.post(url, headers=headers, json=payload)
-    print("📤 PROPERTY MENU STATUS:", response.status_code)
-    print("📤 PROPERTY MENU RESPONSE:", response.text)
+    # print("📤 PROPERTY MENU STATUS:", response.status_code)
+    # print("📤 PROPERTY MENU RESPONSE:", response.text)
 
 
 def send_help_menu(to):
@@ -217,39 +216,12 @@ async def receive_message(request: Request):
             return {"status": "menu sent"}
 
 
-        # message = value["messages"][0]
-        # # 🚫 ignorar eventos raros
-        # if message.get("type") not in ["text", "interactive"]:
-        #     print("⚠️ Evento ignorado:", message.get("type"))
-        #     return {"status": "ignored"}
-        # phone = message["from"]
-        # # 📥 detectar texto
-        # interactive = message.get("interactive", {})
-        # button_reply = interactive.get("button_reply", {})
-        # if button_reply:
-        #     text = button_reply.get("title", "")
-        #     text_lower = button_reply.get("id", "").lower()
-        # else:
-        #     text = message.get("text", {}).get("body", "")
-        #     text_lower = text.lower().strip()
-        # print("📩 Cliente:", phone)
-        # print("📝 Texto:", text_lower)
-        # # 🧠 ANTI DUPLICADOS (clave real)
-        # key = f"{phone}:{text_lower[:10]}"
-        # now = time()
-        # if key in recent_messages and now - recent_messages[key] < 5:
-        #     print("⚠️ DUPLICADO IGNORADO:", key)
-        #     return {"status": "duplicate"}
-        # recent_messages[key] = now
-
-
         # 🧠 CONTEXTO (siempre seguro)
         if phone not in user_context:
             user_context[phone] = {
                 "operation": None,
                 "type": None
             }
-
 
 
         db = SessionLocal()
@@ -407,9 +379,33 @@ def send_and_save(db, phone, text, contact):
     )
     db.add(new_msg)
     db.commit()
-    
-    
-    
+
+
+        # message = value["messages"][0]
+        # # 🚫 ignorar eventos raros
+        # if message.get("type") not in ["text", "interactive"]:
+        #     print("⚠️ Evento ignorado:", message.get("type"))
+        #     return {"status": "ignored"}
+        # phone = message["from"]
+        # # 📥 detectar texto
+        # interactive = message.get("interactive", {})
+        # button_reply = interactive.get("button_reply", {})
+        # if button_reply:
+        #     text = button_reply.get("title", "")
+        #     text_lower = button_reply.get("id", "").lower()
+        # else:
+        #     text = message.get("text", {}).get("body", "")
+        #     text_lower = text.lower().strip()
+        # print("📩 Cliente:", phone)
+        # print("📝 Texto:", text_lower)
+        # # 🧠 ANTI DUPLICADOS (clave real)
+        # key = f"{phone}:{text_lower[:10]}"
+        # now = time()
+        # if key in recent_messages and now - recent_messages[key] < 5:
+        #     print("⚠️ DUPLICADO IGNORADO:", key)
+        #     return {"status": "duplicate"}
+        # recent_messages[key] = now
+
 
 
 
