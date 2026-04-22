@@ -82,13 +82,13 @@ def send_interactive_menu(to: str):
                             "title": "Vender"
                         }
                     },
-                    {
-                        "type": "reply",
-                        "reply": {
-                            "id": "asesor",
-                            "title": "Hablar con asesor"
-                        }
-                    }
+                    # {
+                    #     "type": "reply",
+                    #     "reply": {
+                    #         "id": "asesor",
+                    #         "title": "Hablar con asesor"
+                    #     }
+                    # }
                 ]
             }
         }
@@ -117,7 +117,7 @@ def send_property_type_menu(to, operation):
                 "buttons": [
                     {"type": "reply", "reply": {"id": "departamento", "title": "Departamento"}},
                     {"type": "reply", "reply": {"id": "casa", "title": "Casa"}},
-                    {"type": "reply", "reply": {"id": "terreno", "title": "Lote"}},
+                    # {"type": "reply", "reply": {"id": "terreno", "title": "Lote"}},
                     {"type": "reply", "reply": {"id": "local", "title": "Local"}}
                 ]
             }
