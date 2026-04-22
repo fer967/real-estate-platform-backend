@@ -21,9 +21,6 @@ from app.services.property_service import (
     get_properties_by_property_type
 )
 
-from time import time
-
-recent_messages = {}
 
 user_context = {}   ## contexto simple en memoria para cada usuario (se pierde si se reinicia el servidor, pero es suficiente para este ejemplo)
 
@@ -172,51 +169,69 @@ def send_help_menu(to):
 
 processed_messages = set()
 # 📥 RECEIVE WEBHOOK
+from time import time
+
+recent_messages = {}
+
 @router.post("/webhook")
 async def receive_message(request: Request):
     body = await request.json()
+
     try:
         entry = body["entry"][0]
         changes = entry["changes"][0]
         value = changes["value"]
+
         if "messages" not in value:
             return {"status": "no message event"}
+
         message = value["messages"][0]
-        
-        message_id = message.get("id")
-        if message_id in processed_messages:
-            print("⚠️ Mensaje duplicado ignorado")
-            return {"status": "duplicate"}
-        processed_messages.add(message_id)
+
+        # 🚫 ignorar eventos raros
+        if message.get("type") not in ["text", "interactive"]:
+            print("⚠️ Evento ignorado:", message.get("type"))
+            return {"status": "ignored"}
 
         phone = message["from"]
-        # 👇 obtener texto ANTES
+
+        # 📥 detectar texto
         interactive = message.get("interactive", {})
         button_reply = interactive.get("button_reply", {})
+
         if button_reply:
             text = button_reply.get("title", "")
+            text_lower = button_reply.get("id", "").lower()
         else:
             text = message.get("text", {}).get("body", "")
-        text_lower = text.lower().strip()
-        # 🔥 clave única
-        key = f"{phone}:{text_lower}"
+            text_lower = text.lower().strip()
+
+        print("📩 Cliente:", phone)
+        print("📝 Texto:", text_lower)
+
+        # 🧠 ANTI DUPLICADOS (clave real)
+        key = f"{phone}:{text_lower[:10]}"
         now = time()
-        # si ya existe y fue hace menos de 5 segundos → duplicado
+
         if key in recent_messages and now - recent_messages[key] < 5:
-            print("⚠️ DUPLICADO REAL IGNORADO:", key)
+            print("⚠️ DUPLICADO IGNORADO:", key)
             return {"status": "duplicate"}
+
         recent_messages[key] = now
 
-            # ✅ ACÁ
-        print("TEXT LOWER:", text_lower)
-        print("TEXT:", text)
+        # 🧠 CONTEXTO (siempre seguro)
+        if phone not in user_context:
+            user_context[phone] = {
+                "operation": None,
+                "type": None
+            }
 
         db = SessionLocal()
-        # 👤 obtener nombre real
+
+        # 👤 nombre
         contacts = value.get("contacts", [])
         name = "WhatsApp User"
         if contacts:
-            name = contacts[0].get("profile", {}).get("name", "WhatsApp User")
+            name = contacts[0].get("profile", {}).get("name", name)
 
         # 💾 guardar lead
         create_lead_service(
@@ -224,121 +239,108 @@ async def receive_message(request: Request):
             name=name,
             phone=phone,
             message=text,
-            property_id=None,     # por ahora no detectamos propiedad específica, pero se podría mejorar con NLP o reglas más avanzadas
+            property_id=None,
             source="whatsapp",
         )
-        
+
         contact = db.query(Contact).filter(Contact.phone == phone).first()
-        
-        # 🚫 DESPUÉS cortar bot
-        if contact.status == "human":
-            print("👤 Conversación humana - solo guardo mensaje")
+
+        # 🚫 modo humano
+        if contact and contact.status == "human":
+            print("👤 Conversación humana activa")
             db.close()
-            return {"status": "saved only"}
-        
-        if contact.hubspot_id:
+            return {"status": "human"}
+
+        # 🔄 HubSpot
+        if contact and contact.hubspot_id:
             update_hubspot_contact(contact.hubspot_id, {
                 "hs_lead_status": "IN_PROGRESS"
             })
-        
-        
-        # 🤖 LÓGICA BOT
-        # 1️⃣ BOTONES
-        if text_lower in ["comprar"]:
+
+        # ======================================================
+        # 🤖 BOT
+        # ======================================================
+
+        # 🟢 MENÚ PRINCIPAL
+        if text_lower in ["hola", "hi", "menu", "menú", "inicio"]:
+            send_interactive_menu(phone)
+            db.close()
+            return {"status": "menu"}
+
+        # 🟢 COMPRAR
+        if text_lower == "comprar":
             user_context[phone]["operation"] = "venta"
             send_property_type_menu(phone, "compra")
+            db.close()
+            return {"status": "comprar"}
 
-        elif text_lower in ["alquilar"]:
+        # 🟢 ALQUILAR
+        if text_lower == "alquilar":
             user_context[phone]["operation"] = "alquiler"
             send_property_type_menu(phone, "alquiler")
-        
-        
-        elif text_lower == "vender":
+            db.close()
+            return {"status": "alquilar"}
+
+        # 🟢 VENDER
+        if text_lower == "vender":
             send_whatsapp_message(
                 phone,
-                "📊 *Venta de propiedad*\n\nPodés solicitar una tasación o hablar con un asesor.\n\nEscribí *tasar* o *asesor*"
+                "📊 *Venta de propiedad*\n\nPodés solicitar una tasación o escribir *asesor*."
             )
-            
-        elif text_lower == "tasar":
+            db.close()
+            return {"status": "vender"}
+
+        # 🟢 TASAR
+        if text_lower == "tasar":
             send_whatsapp_message(
                 phone,
-                "📊 *Tasación de propiedad*\n\nEnvíanos la dirección o zona y te contactamos."
+                "📊 Enviá la dirección o zona y te contactamos."
             )
-            
-        # 2️⃣ MENÚ
-        elif any(word in text_lower for word in ["hola", "menu", "menú", "inicio", "hi"]):
-            send_interactive_menu(phone)
-        # 3️⃣ DETECCIÓN SIMPLE
-        elif text_lower in ["departamento", "departamentos"]:
-            user_context[phone]["type"] = "departamento"
+            db.close()
+            return {"status": "tasar"}
+
+        # 🟢 TIPO PROPIEDAD
+        if text_lower in ["departamento", "casa", "local", "terreno"]:
+            user_context[phone]["type"] = text_lower
             operation = user_context[phone].get("operation")
+
             if operation:
                 properties = db.query(Property).filter(
                     Property.operation_type.ilike(f"%{operation}%"),
-                    Property.property_type.ilike("%departamento%")
+                    Property.property_type.ilike(f"%{text_lower}%")
                 ).limit(3).all()
             else:
-                properties = get_properties_by_property_type(db, "departamento")
-            msg = format_properties_message(properties)
-            send_whatsapp_message(phone, msg)
-            
-        elif any(word in text_lower for word in ["casa", "casas"]):
-    # si el mensaje es más largo → NO asumir
-            if len(text_lower.split()) > 2:
-                send_help_menu(phone)
-                return {"status": "ambiguous"}
-            user_context[phone]["type"] = "casa"
-            operation = user_context[phone].get("operation")
-            if operation:
-                properties = db.query(Property).filter(
-                Property.operation_type.ilike(f"%{operation}%"),
-                Property.property_type.ilike("%casa%")
-            ).limit(3).all()
-            else:
-                properties = get_properties_by_property_type(db, "casa")
+                properties = get_properties_by_property_type(db, text_lower)
+
             msg = format_properties_message(properties)
             send_whatsapp_message(phone, msg)
 
-        elif any(word in text_lower for word in ["local", " locales"]):
-    # si el mensaje es más largo → NO asumir
-            if len(text_lower.split()) > 2:
-                send_help_menu(phone)
-                return {"status": "ambiguous"}
-            user_context[phone]["type"] = " local "
-            operation = user_context[phone].get("operation")
-            if operation:
-                properties = db.query(Property).filter(
-                    Property.operation_type.ilike(f"%{operation}%"),
-                    Property.property_type.ilike("%local %")
-                ).limit(3).all()
-            else:
-                properties = get_properties_by_property_type(db, " local ")
-            msg = format_properties_message(properties)
-            send_whatsapp_message(phone, msg)
-            
-        elif any(word in text_lower for word in ["barrio", "zona", "precio"]):
-            send_help_menu(phone)
-            
-        elif "asesor" in text_lower:
+            db.close()
+            return {"status": "properties"}
+
+        # 🟢 ASESOR
+        if "asesor" in text_lower:
             if contact:
                 contact.status = "human"
-                print("CONTACT STATUS:", contact.status if contact else "NO CONTACT")
                 db.commit()
+
             send_whatsapp_message(
                 phone,
-                "🙌 Perfecto, un asesor te va a escribir en breve."
+                "🙌 Un asesor te va a escribir en breve."
             )
 
-        # 4️⃣ FALLBACK → MENÚ INTERACTIVO
-        else:
-            send_interactive_menu(phone)
-            
+            db.close()
+            return {"status": "asesor"}
+
+        # 🟡 FALLBACK
+        send_interactive_menu(phone)
         db.close()
+        return {"status": "fallback"}
+
     except Exception as e:
         print("❌ ERROR:", e)
         print(traceback.format_exc())
-    return {"status": "received"}
-
+        return {"status": "error"}
 
 @router.post("/send")
 def send_whatsapp(data: dict):
