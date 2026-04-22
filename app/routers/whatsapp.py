@@ -184,39 +184,64 @@ async def receive_message(request: Request):
 
         if "messages" not in value:
             return {"status": "no message event"}
-
+        
+        
         message = value["messages"][0]
-
-        # 🚫 ignorar eventos raros
-        if message.get("type") not in ["text", "interactive"]:
-            print("⚠️ Evento ignorado:", message.get("type"))
-            return {"status": "ignored"}
-
         phone = message["from"]
-
-        # 📥 detectar texto
+        # ✅ evitar duplicados
+        message_id = message.get("id")
+        if message_id in processed_messages:
+            print("⚠️ Mensaje duplicado ignorado")
+            return {"status": "duplicate"}
+        processed_messages.add(message_id)
+        # ✅ asegurar contexto SIEMPRE
+        is_new_user = phone not in user_context
+        if is_new_user:
+            user_context[phone] = {
+                "operation": None,
+                "type": None
+            }
+        # 👇 detectar texto
         interactive = message.get("interactive", {})
         button_reply = interactive.get("button_reply", {})
-
         if button_reply:
             text = button_reply.get("title", "")
             text_lower = button_reply.get("id", "").lower()
         else:
             text = message.get("text", {}).get("body", "")
             text_lower = text.lower().strip()
+        print("TEXTO:", text)
+        # ✅ menú SOLO primera vez
+        if is_new_user:
+            send_interactive_menu(phone)
+            return {"status": "menu sent"}
 
-        print("📩 Cliente:", phone)
-        print("📝 Texto:", text_lower)
 
-        # 🧠 ANTI DUPLICADOS (clave real)
-        key = f"{phone}:{text_lower[:10]}"
-        now = time()
+        # message = value["messages"][0]
+        # # 🚫 ignorar eventos raros
+        # if message.get("type") not in ["text", "interactive"]:
+        #     print("⚠️ Evento ignorado:", message.get("type"))
+        #     return {"status": "ignored"}
+        # phone = message["from"]
+        # # 📥 detectar texto
+        # interactive = message.get("interactive", {})
+        # button_reply = interactive.get("button_reply", {})
+        # if button_reply:
+        #     text = button_reply.get("title", "")
+        #     text_lower = button_reply.get("id", "").lower()
+        # else:
+        #     text = message.get("text", {}).get("body", "")
+        #     text_lower = text.lower().strip()
+        # print("📩 Cliente:", phone)
+        # print("📝 Texto:", text_lower)
+        # # 🧠 ANTI DUPLICADOS (clave real)
+        # key = f"{phone}:{text_lower[:10]}"
+        # now = time()
+        # if key in recent_messages and now - recent_messages[key] < 5:
+        #     print("⚠️ DUPLICADO IGNORADO:", key)
+        #     return {"status": "duplicate"}
+        # recent_messages[key] = now
 
-        if key in recent_messages and now - recent_messages[key] < 5:
-            print("⚠️ DUPLICADO IGNORADO:", key)
-            return {"status": "duplicate"}
-
-        recent_messages[key] = now
 
         # 🧠 CONTEXTO (siempre seguro)
         if phone not in user_context:
@@ -224,6 +249,8 @@ async def receive_message(request: Request):
                 "operation": None,
                 "type": None
             }
+
+
 
         db = SessionLocal()
 
