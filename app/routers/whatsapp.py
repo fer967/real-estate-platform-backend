@@ -14,13 +14,8 @@ from app.services.whatsapp_service import (
     PHONE_NUMBER_ID,
     send_whatsapp_message
 )
-from app.services.property_service import (
-    get_properties_by_operation,
-    format_properties_message,
-    get_properties_by_property_type
-)
+from app.services.property_service import get_properties_by_property_type
 from time import time
-
 
 user_context = {}   ## contexto simple en memoria para cada usuario (se pierde si se reinicia el servidor, pero es suficiente para este ejemplo)
 recent_messages = {}  ## para evitar mensajes duplicados
@@ -204,11 +199,6 @@ async def receive_message(request: Request):
             "mas_tipos"
         ]
 
-
-        # if is_new_user or text_lower not in valid_inputs:
-        #     ctx["step"] = "menu"
-        #     send_main_menu(phone)
-        #     return {"status": "menu auto"}
         if is_new_user:
             ctx["step"] = "menu"
             send_main_menu(phone)
@@ -217,7 +207,6 @@ async def receive_message(request: Request):
             ctx["step"] = "menu"
             send_main_menu(phone)
             return {"status": "menu auto"}
-
 
         # 🧠 CONTEXTO (siempre seguro)
         if phone not in user_context:
@@ -265,7 +254,7 @@ async def receive_message(request: Request):
         # ======================================================
         step = ctx.get("step")
         # 🔹 MENÚ PRINCIPAL
-        if text_lower in ["hola", "consulta", "buenos dias", "tardes", "noches"]:   #### como dar mas opciones
+        if text_lower in ["hola", "consulta", "dias", "tardes", "noches", "operaciones", "pregunta", "duda"]:   #### como dar mas opciones
             ctx["step"] = "menu"
             send_main_menu(phone)
             return
@@ -320,7 +309,6 @@ async def receive_message(request: Request):
             else:
                 properties = get_properties_by_property_type(db, text_lower)
 
-
             msg = "🏡 Propiedades disponibles:\n\n"
             for prop in properties:
                 msg += f"📌 {prop.title}\n"
@@ -341,13 +329,7 @@ async def receive_message(request: Request):
 
 
         # 🟢 MENÚ PRINCIPAL
-        # if ctx.get("step") in ["property_menu", "results"]:
-        #     # usuario se salió del flujo → escalar
-        #     contact.status = "human"
-        #     db.commit()
-        #     send_whatsapp_message(phone, "🙌 Te paso con un asesor para ayudarte mejor.")
-        #     return
-        
+
         if ctx.get("step") == "results" and text_lower not in ["menu", "inicio"]:
             if contact:
                 contact.status = "human"
@@ -355,19 +337,16 @@ async def receive_message(request: Request):
             send_whatsapp_message(phone, "🙌 Te paso con un asesor para ayudarte mejor.")
             return {"status": "escalated to human"}
 
-
         # 🟡 FALLBACK
         send_main_menu(phone)
         # send_interactive_menu(phone)
         db.close()
         return {"status": "fallback"}
 
-
     except Exception as e:
         print("❌ ERROR:", e)
         print(traceback.format_exc())
         return {"status": "error"}
-
 
 
 @router.post("/send")

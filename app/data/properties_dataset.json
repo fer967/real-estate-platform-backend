@@ -22,5 +22,29 @@
         "property_type": "departamento",
         "price": 95000,
         "surface": 70
+    },
+    {
+        "city": "Cordoba",
+        "property_type": "local",
+        "price": 60000,
+        "surface": 60
+    },
+    {
+        "city": "Cordoba",
+        "property_type": "local",
+        "price": 45000,
+        "surface": 70
+    },
+    {
+        "city": "Cordoba",
+        "property_type": "casa",
+        "price": 170000,
+        "surface": 100
+    },
+    {
+        "city": "Cordoba",
+        "property_type": "departamento",
+        "price": 70000,
+        "surface": 130
     }
 ]
