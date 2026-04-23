@@ -180,6 +180,9 @@ async def receive_message(request: Request):
                 "type": None,
                 "step" : "menu"
             }
+
+            ctx = user_context[phone]
+
         # 👇 detectar texto
         interactive = message.get("interactive", {})
         button_reply = interactive.get("button_reply", {})
@@ -248,8 +251,7 @@ async def receive_message(request: Request):
         # ======================================================
         # 🤖 BOT
         # ======================================================
-        
-        ctx = user_context[phone]
+
         step = ctx.get("step")
 
         # 🔹 MENÚ PRINCIPAL
