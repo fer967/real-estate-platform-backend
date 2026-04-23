@@ -165,23 +165,24 @@ async def receive_message(request: Request):
         
         message = value["messages"][0]
         phone = message["from"]
+        
         # ✅ evitar duplicados
         message_id = message.get("id")
         if message_id in processed_messages:
             print("⚠️ Mensaje duplicado ignorado")
             return {"status": "duplicate"}
         processed_messages.add(message_id)
+        
         # ✅ asegurar contexto SIEMPRE
         is_new_user = phone not in user_context
         if is_new_user:
-            
             user_context[phone] = {
                 "operation": None,
                 "type": None,
                 "step" : "menu"
             }
 
-            ctx = user_context[phone]
+        ctx = user_context[phone]
 
         # 👇 detectar texto
         interactive = message.get("interactive", {})
@@ -251,9 +252,7 @@ async def receive_message(request: Request):
         # ======================================================
         # 🤖 BOT
         # ======================================================
-
         step = ctx.get("step")
-
         # 🔹 MENÚ PRINCIPAL
         if text_lower in ["hola", "menu", "inicio"]:
             ctx["step"] = "menu"
