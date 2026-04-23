@@ -313,9 +313,8 @@ async def receive_message(request: Request):
             for prop in properties:
                 msg += f"📌 {prop.title}\n"
                 msg += f"📍 {prop.price}\n"
-                msg += f"📍 {prop.bedrooms} habitaciones\n"
+                msg += f"\n\n🔗 Ver propiedad:\nhttps://frontend-plataforma-inmobiliaria.onrender.com/property/{prop.id}\n\n"
                 msg += f" si querés más info escribí *asesor*\n"
-                # msg += f"\n\n🔗 Ver propiedad:\nhttps://frontend-plataforma-inmobiliaria.onrender.com//propiedad/{prop.id}\n\n"
             send_whatsapp_message(phone, msg)
             return
 
