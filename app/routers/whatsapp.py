@@ -265,7 +265,7 @@ async def receive_message(request: Request):
         # ======================================================
         step = ctx.get("step")
         # 🔹 MENÚ PRINCIPAL
-        if text_lower in ["hola", "menu", "inicio"]:
+        if text_lower in ["hola", "consulta", "buenos dias", "tardes", "noches"]:   #### como dar mas opciones
             ctx["step"] = "menu"
             send_main_menu(phone)
             return
@@ -301,7 +301,7 @@ async def receive_message(request: Request):
         # 🔹 VENDER
         if text_lower == "vender":
             ctx["step"] = "vender"
-            send_whatsapp_message(phone, "📊 Podés tasar tu propiedad o escribir *asesor*")
+            send_whatsapp_message(phone, "📊 Podés buscar tasaciones en la barra de búsqueda o escribir *asesor*")
             db.close()
             return
 
@@ -321,13 +321,13 @@ async def receive_message(request: Request):
                 properties = get_properties_by_property_type(db, text_lower)
 
 
-            # msg = format_properties_message(properties)
             msg = "🏡 Propiedades disponibles:\n\n"
             for prop in properties:
                 msg += f"📌 {prop.title}\n"
                 msg += f"📍 {prop.price}\n"
                 msg += f"📍 {prop.bedrooms} habitaciones\n"
-                msg += f"\n\n🔗 Ver propiedad:\nhttps://frontend-plataforma-inmobiliaria.onrender.com//propiedad/{prop.id}"
+                msg += f" si querés más info escribí *asesor*\n"
+                # msg += f"\n\n🔗 Ver propiedad:\nhttps://frontend-plataforma-inmobiliaria.onrender.com//propiedad/{prop.id}\n\n"
             send_whatsapp_message(phone, msg)
             return
 
