@@ -1,4 +1,5 @@
 import traceback
+from urllib import response
 from fastapi import APIRouter, Request, HTTPException  
 import os
 import requests
@@ -19,9 +20,12 @@ from app.services.property_service import (
     format_properties_message,
     get_properties_by_property_type
 )
+from time import time
 
 
 user_context = {}   ## contexto simple en memoria para cada usuario (se pierde si se reinicia el servidor, pero es suficiente para este ejemplo)
+recent_messages = {}  ## para evitar mensajes duplicados
+processed_messages = set()
 
 load_dotenv()
 
@@ -43,13 +47,18 @@ async def verify_webhook(request: Request):
     return {"error": "Verification failed"}
 
 
-# 📩 SEND INTERACTIVE MENU
-def send_interactive_menu(to: str):
+# funciones agregadas el 22/4
+
+def send_interactive(to, payload):
     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
     headers = {
         "Authorization": f"Bearer {WHATSAPP_TOKEN}",
         "Content-Type": "application/json"
     }
+    return requests.post(url, headers=headers, json=payload)
+
+
+def send_main_menu(to):
     payload = {
         "messaging_product": "whatsapp",
         "to": to,
@@ -57,53 +66,23 @@ def send_interactive_menu(to: str):
         "interactive": {
             "type": "button",
             "body": {
-                "text": "Hola 👋 Soy tu asistente inmobiliario\n\n¿En qué puedo ayudarte?"
+                "text": "Hola 👋 Soy tu asistente inmobiliario\n\n¿Qué querés hacer?"
             },
             "action": {
                 "buttons": [
-                    {
-                        "type": "reply",
-                        "reply": {
-                            "id": "comprar",
-                            "title": "Comprar"
-                        }
-                    },
-                    {
-                        "type": "reply",
-                        "reply": {
-                            "id": "alquilar",
-                            "title": "Alquilar"
-                        }
-                    },
-                    {
-                        "type": "reply",
-                        "reply": {
-                            "id": "vender",
-                            "title": "Vender"
-                        }
-                    },
-                    # {
-                    #     "type": "reply",
-                    #     "reply": {
-                    #         "id": "asesor",
-                    #         "title": "Hablar con asesor"
-                    #     }
-                    # }
+                    {"type": "reply", "reply": {"id": "comprar", "title": "Comprar"}},
+                    {"type": "reply", "reply": {"id": "alquilar", "title": "Alquilar"}},
+                    {"type": "reply", "reply": {"id": "otras", "title": "Otra opción"}}
                 ]
             }
         }
     }
-    response = requests.post(url, headers=headers, json=payload)
+    response = send_interactive(to, payload)
     print("📤 STATUS:", response.status_code)
     print("📤 RESPONSE:", response.text)
 
 
-def send_property_type_menu(to, operation):
-    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
-    headers = {
-        "Authorization": f"Bearer {WHATSAPP_TOKEN}",
-        "Content-Type": "application/json"
-    }
+def send_other_menu(to):
     payload = {
         "messaging_product": "whatsapp",
         "to": to,
@@ -111,29 +90,46 @@ def send_property_type_menu(to, operation):
         "interactive": {
             "type": "button",
             "body": {
-                "text": f"¿Qué tipo de propiedad buscás para {operation}?"
+                "text": "¿Qué necesitás?"
+            },
+            "action": {
+                "buttons": [
+                    {"type": "reply", "reply": {"id": "vender", "title": "Vender"}},
+                    {"type": "reply", "reply": {"id": "asesor", "title": "Hablar con asesor"}}
+                ]
+            }
+        }
+    }
+    response = send_interactive(to, payload)
+    print("📤 STATUS:", response.status_code)
+    print("📤 RESPONSE:", response.text)
+
+
+def send_property_menu_main(to, operation):
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": to,
+        "type": "interactive",
+        "interactive": {
+            "type": "button",
+            "body": {
+                "text": f"¿Qué tipo buscás para {operation}?"
             },
             "action": {
                 "buttons": [
                     {"type": "reply", "reply": {"id": "departamento", "title": "Departamento"}},
                     {"type": "reply", "reply": {"id": "casa", "title": "Casa"}},
-                    # {"type": "reply", "reply": {"id": "terreno", "title": "Lote"}},
-                    {"type": "reply", "reply": {"id": "local", "title": "Local"}}
+                    {"type": "reply", "reply": {"id": "mas_tipos", "title": "Otra opción"}}
                 ]
             }
         }
     }
-    requests.post(url, headers=headers, json=payload)
-    # print("📤 PROPERTY MENU STATUS:", response.status_code)
-    # print("📤 PROPERTY MENU RESPONSE:", response.text)
+    response = send_interactive(to, payload)
+    print("📤 STATUS:", response.status_code)
+    print("📤 RESPONSE:", response.text)
 
 
-def send_help_menu(to):
-    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
-    headers = {
-        "Authorization": f"Bearer {WHATSAPP_TOKEN}",
-        "Content-Type": "application/json"
-    }
+def send_property_menu_extra(to):
     payload = {
         "messaging_product": "whatsapp",
         "to": to,
@@ -141,36 +137,147 @@ def send_help_menu(to):
         "interactive": {
             "type": "button",
             "body": {
-                "text": "¿Querés ver opciones o hablar con un asesor?"
+                "text": "Más opciones:"
             },
             "action": {
                 "buttons": [
-                    {
-                        "type": "reply",
-                        "reply": {
-                            "id": "menu",
-                            "title": "Ver opciones"
-                        }
-                    },
-                    {
-                        "type": "reply",
-                        "reply": {
-                            "id": "asesor",
-                            "title": "Hablar con asesor"
-                        }
-                    }
+                    {"type": "reply", "reply": {"id": "local", "title": "Local"}},
+                    {"type": "reply", "reply": {"id": "terreno", "title": "Terreno"}},
+                    {"type": "reply", "reply": {"id": "asesor", "title": "Hablar con asesor"}}
                 ]
             }
         }
     }
-    requests.post(url, headers=headers, json=payload)
+    response = send_interactive(to, payload)
+    print("📤 STATUS:", response.status_code)
+    print("📤 RESPONSE:", response.text)
 
 
-processed_messages = set()
+# 📩 SEND INTERACTIVE MENU
+# def send_interactive_menu(to: str):
+#     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+#     headers = {
+#         "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+#         "Content-Type": "application/json"
+#     }
+#     payload = {
+#         "messaging_product": "whatsapp",
+#         "to": to,
+#         "type": "interactive",
+#         "interactive": {
+#             "type": "button",
+#             "body": {
+#                 "text": "Hola 👋 Soy tu asistente inmobiliario\n\n¿En qué puedo ayudarte?"
+#             },
+#             "action": {
+#                 "buttons": [
+#                     {
+#                         "type": "reply",
+#                         "reply": {
+#                             "id": "comprar",
+#                             "title": "Comprar"
+#                         }
+#                     },
+#                     {
+#                         "type": "reply",
+#                         "reply": {
+#                             "id": "alquilar",
+#                             "title": "Alquilar"
+#                         }
+#                     },
+#                     {
+#                         "type": "reply",
+#                         "reply": {
+#                             "id": "vender",
+#                             "title": "Vender"
+#                         }
+#                     }
+#                     # {
+#                     #     "type": "reply",
+#                     #     "reply": {
+#                     #         "id": "asesor",
+#                     #         "title": "Hablar con asesor"
+#                     #     }
+#                     # }
+#                 ]
+#             }
+#         }
+#     }
+#     requests.post(url, headers=headers, json=payload)
+    # print("📤 STATUS:", response.status_code)
+    # print("📤 RESPONSE:", response.text)
+
+
+# def send_property_type_menu(to, operation):
+#     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+#     headers = {
+#         "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+#         "Content-Type": "application/json"
+#     }
+#     payload = {
+#         "messaging_product": "whatsapp",
+#         "to": to,
+#         "type": "interactive",
+#         "interactive": {
+#             "type": "button",
+#             "body": {
+#                 "text": f"¿Qué tipo de propiedad buscás para {operation}?"
+#             },
+#             "action": {
+#                 "buttons": [
+#                     {"type": "reply", "reply": {"id": "departamento", "title": "Departamento"}},
+#                     {"type": "reply", "reply": {"id": "casa", "title": "Casa"}},
+#                     # {"type": "reply", "reply": {"id": "terreno", "title": "Lote"}},
+#                     {"type": "reply", "reply": {"id": "local", "title": "Local"}}
+#                 ]
+#             }
+#         }
+#     }
+#     requests.post(url, headers=headers, json=payload)
+    # print("📤 PROPERTY MENU STATUS:", response.status_code)
+    # print("📤 PROPERTY MENU RESPONSE:", response.text)
+
+
+# def send_help_menu(to):
+#     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+#     headers = {
+#         "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+#         "Content-Type": "application/json"
+#     }
+#     payload = {
+#         "messaging_product": "whatsapp",
+#         "to": to,
+#         "type": "interactive",
+#         "interactive": {
+#             "type": "button",
+#             "body": {
+#                 "text": "¿Querés ver opciones o hablar con un asesor?"
+#             },
+#             "action": {
+#                 "buttons": [
+#                     {
+#                         "type": "reply",
+#                         "reply": {
+#                             "id": "menu",
+#                             "title": "Ver opciones"
+#                         }
+#                     },
+#                     {
+#                         "type": "reply",
+#                         "reply": {
+#                             "id": "asesor",
+#                             "title": "Hablar con asesor"
+#                         }
+#                     }
+#                 ]
+#             }
+#         }
+#     }
+#     requests.post(url, headers=headers, json=payload)
+
+
+
 # 📥 RECEIVE WEBHOOK
-from time import time
-
-recent_messages = {}
 
 @router.post("/webhook")
 async def receive_message(request: Request):
@@ -196,9 +303,11 @@ async def receive_message(request: Request):
         # ✅ asegurar contexto SIEMPRE
         is_new_user = phone not in user_context
         if is_new_user:
+            
             user_context[phone] = {
                 "operation": None,
-                "type": None
+                "type": None,
+                "step" : "menu"
             }
         # 👇 detectar texto
         interactive = message.get("interactive", {})
@@ -212,17 +321,18 @@ async def receive_message(request: Request):
         print("TEXTO:", text)
         # ✅ menú SOLO primera vez
         if is_new_user:
-            send_interactive_menu(phone)
+            send_main_menu(phone)
+            # send_interactive_menu(phone)
             return {"status": "menu sent"}
-
 
         # 🧠 CONTEXTO (siempre seguro)
         if phone not in user_context:
+            
             user_context[phone] = {
                 "operation": None,
-                "type": None
+                "type": None,
+                "step" : "menu"
             }
-
 
         db = SessionLocal()
 
@@ -259,80 +369,161 @@ async def receive_message(request: Request):
         # ======================================================
         # 🤖 BOT
         # ======================================================
+        
+        ctx = user_context[phone]
+        step = ctx.get("step")
 
-        # 🟢 MENÚ PRINCIPAL
-        if text_lower in ["hola", "hi", "menu", "menú", "inicio"]:
-            send_interactive_menu(phone)
-            db.close()
-            return {"status": "menu"}
+        # 🔹 MENÚ PRINCIPAL
+        if text_lower in ["hola", "menu", "inicio"]:
+            ctx["step"] = "menu"
+            send_main_menu(phone)
+            return
 
-        # 🟢 COMPRAR
+        # 🔹 OTRAS OPCIONES
+        if text_lower == "otras":
+            ctx["step"] = "other_menu"
+            send_other_menu(phone)
+            return
+
+        # 🔹 COMPRAR
         if text_lower == "comprar":
-            user_context[phone]["operation"] = "venta"
-            send_property_type_menu(phone, "compra")
-            db.close()
-            return {"status": "comprar"}
+            ctx["operation"] = "venta"
+            ctx["step"] = "property_menu"
+            send_property_menu_main(phone, "compra")
+            return
 
-        # 🟢 ALQUILAR
+        # 🔹 ALQUILAR
         if text_lower == "alquilar":
-            user_context[phone]["operation"] = "alquiler"
-            send_property_type_menu(phone, "alquiler")
-            db.close()
-            return {"status": "alquilar"}
+            ctx["operation"] = "alquiler"
+            ctx["step"] = "property_menu"
+            send_property_menu_main(phone, "alquiler")
+            return
 
-        # 🟢 VENDER
+        # 🔹 MÁS TIPOS
+        if text_lower == "mas_tipos":
+            ctx["step"] = "property_menu_extra"
+            send_property_menu_extra(phone)
+            return
+
+        # 🔹 VENDER
         if text_lower == "vender":
-            send_whatsapp_message(
-                phone,
-                "📊 *Venta de propiedad*\n\nPodés solicitar una tasación o escribir *asesor*."
-            )
-            db.close()
-            return {"status": "vender"}
+            ctx["step"] = "vender"
+            send_whatsapp_message(phone, "📊 Podés tasar tu propiedad o escribir *asesor*")
+            return
 
-        # 🟢 TASAR
-        if text_lower == "tasar":
-            send_whatsapp_message(
-                phone,
-                "📊 Enviá la dirección o zona y te contactamos."
-            )
-            db.close()
-            return {"status": "tasar"}
-
-        # 🟢 TIPO PROPIEDAD
+        # 🔹 TIPO PROPIEDAD
         if text_lower in ["departamento", "casa", "local", "terreno"]:
-            user_context[phone]["type"] = text_lower
-            operation = user_context[phone].get("operation")
+            ctx["type"] = text_lower
+            ctx["step"] = "results"
+
+            operation = ctx.get("operation")
 
             if operation:
                 properties = db.query(Property).filter(
                     Property.operation_type.ilike(f"%{operation}%"),
                     Property.property_type.ilike(f"%{text_lower}%")
-                ).limit(3).all()
+            ).limit(3).all()
             else:
                 properties = get_properties_by_property_type(db, text_lower)
 
             msg = format_properties_message(properties)
+
+            # 👇 mejora 2: link directo
+            msg += "\n\n👉 Ver más: https://frontend-plataforma-inmobiliaria.onrender.com/propiedad/{prop.id}".format(prop=properties[0]) if properties else ""
+
             send_whatsapp_message(phone, msg)
+            return
 
-            db.close()
-            return {"status": "properties"}
-
-        # 🟢 ASESOR
+        # 🔹 ASESOR
         if "asesor" in text_lower:
-            if contact:
-                contact.status = "human"
-                db.commit()
+            contact.status = "human"
+            db.commit()
+            send_whatsapp_message(phone, "🙌 Un asesor te escribe en breve.")
+            return
 
-            send_whatsapp_message(
-                phone,
-                "🙌 Un asesor te va a escribir en breve."
-            )
+        # 🟢 MENÚ PRINCIPAL
+    #     if text_lower in ["hola", "hi", "menu", "menú", "inicio"]:
+    #         send_interactive_menu(phone)
+    #         db.close()
+    #         return {"status": "menu"}
 
-            db.close()
-            return {"status": "asesor"}
+    #     # 🟢 COMPRAR
+    #     if text_lower == "comprar":
+    #         user_context[phone]["operation"] = "venta"
+    #         send_property_type_menu(phone, "compra")
+    #         db.close()
+    #         return {"status": "comprar"}
+
+    #     # 🟢 ALQUILAR
+    #     if text_lower == "alquilar":
+    #         user_context[phone]["operation"] = "alquiler"
+    #         send_property_type_menu(phone, "alquiler")
+    #         db.close()
+    #         return {"status": "alquilar"}
+
+    #     # 🟢 VENDER
+    #     if text_lower == "vender":
+    #         send_whatsapp_message(
+    #             phone,
+    #             "📊 *Venta de propiedad*\n\nPodés solicitar una tasación o escribir *asesor*."
+    #         )
+    #         db.close()
+    #         return {"status": "vender"}
+
+    #     # 🟢 TASAR
+    #     if text_lower == "tasar":
+    #         send_whatsapp_message(
+    #             phone,
+    #             "📊 Enviá la dirección o zona y te contactamos."
+    #         )
+    #         db.close()
+    #         return {"status": "tasar"}
+
+    #     # 🟢 TIPO PROPIEDAD
+    #     if text_lower in ["departamento", "casa", "local", "terreno"]:
+    #         user_context[phone]["type"] = text_lower
+    #         operation = user_context[phone].get("operation")
+
+    #         if operation:
+    #             properties = db.query(Property).filter(
+    #                 Property.operation_type.ilike(f"%{operation}%"),
+    #                 Property.property_type.ilike(f"%{text_lower}%")
+    #             ).limit(3).all()
+    #         else:
+    #             properties = get_properties_by_property_type(db, text_lower)
+
+    #         msg = format_properties_message(properties)
+    #         send_whatsapp_message(phone, msg)
+
+    #         db.close()
+    #         return {"status": "properties"}
+
+    #     # 🟢 ASESOR
+    #     if "asesor" in text_lower:
+    #         if contact:
+    #             contact.status = "human"
+    #             db.commit()
+
+    #         send_whatsapp_message(
+    #             phone,
+    #             "🙌 Un asesor te va a escribir en breve."
+    #         )
+
+    #         db.close()
+    #         return {"status": "asesor"}
+
+
+        if ctx.get("step") in ["property_menu", "results"]:
+            # usuario se salió del flujo → escalar
+            contact.status = "human"
+            db.commit()
+            send_whatsapp_message(phone, "🙌 Te paso con un asesor para ayudarte mejor.")
+            return
+
 
         # 🟡 FALLBACK
-        send_interactive_menu(phone)
+        send_main_menu(phone)
+        # send_interactive_menu(phone)
         db.close()
         return {"status": "fallback"}
 
@@ -340,6 +531,8 @@ async def receive_message(request: Request):
         print("❌ ERROR:", e)
         print(traceback.format_exc())
         return {"status": "error"}
+
+
 
 @router.post("/send")
 def send_whatsapp(data: dict):
