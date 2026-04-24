@@ -255,9 +255,11 @@ async def receive_message(request: Request):
         step = ctx.get("step")
         # 🔹 MENÚ PRINCIPAL
         if text_lower in [
-            "hola", "consulta", "dias", "tardes", "noches", "operaciones",
-            "pregunta", "duda", "vender","comprar", "alquilar", "casa", "departamento",
-            "local", "terreno", "mas_tipos", "buenas"]:   
+            "hola", "dia", "tardes",
+            "comprar", "alquilar", "otras", "menu", "inicio",
+            "vender", "buenas", "asesor",
+            "departamento", "casa", "local", "terreno",
+            "mas_tipos"]:   
             ctx["step"] = "menu"
             send_main_menu(phone)
             return
