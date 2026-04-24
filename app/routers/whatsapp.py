@@ -16,6 +16,7 @@ from app.services.whatsapp_service import (
 )
 from app.services.property_service import get_properties_by_property_type
 from time import time
+from main import notify_admins
 
 user_context = {}   ## contexto simple en memoria para cada usuario (se pierde si se reinicia el servidor, pero es suficiente para este ejemplo)
 recent_messages = {}  ## para evitar mensajes duplicados
@@ -239,9 +240,16 @@ async def receive_message(request: Request):
 
         # 🚫 modo humano
         if contact and contact.status == "human":
-            print("👤 Conversación humana activa")
-            db.close()
-            return {"status": "human"}
+            await notify_admins({
+                "type": "new_message",
+                "phone": phone,
+                "message": text,
+                "timestamp": time()
+            })
+        # if contact and contact.status == "human":
+        #     print("👤 Conversación humana activa")
+        #     db.close()
+        #     return {"status": "human"}
 
         # 🔄 HubSpot
         if contact and contact.hubspot_id:
@@ -324,6 +332,11 @@ async def receive_message(request: Request):
                 contact.status = "human"
                 db.commit()
             send_whatsapp_message(phone, "🙌 Un asesor te escribe en breve.")
+            await notify_admins({
+                "type": "new_lead",
+                "phone": phone,
+                "name": contact.name if contact else "Unknown"
+            })
             return
 
 
