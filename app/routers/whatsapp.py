@@ -193,8 +193,8 @@ async def receive_message(request: Request):
         # ✅ menú SOLO primera vez
         valid_inputs = [
             "hola", "dia", "tardes", "noches", "pregunta", "consulta", "duda", "operaciones",
-            "comprar", "alquilar", "otras",
-            "vender", "buenas",
+            "comprar", "alquilar", "otras", "menu", "inicio",
+            "vender", "buenas", "asesor",
             "departamento", "casa", "local", "terreno",
             "mas_tipos"
         ]
