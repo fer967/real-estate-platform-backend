@@ -17,6 +17,8 @@ from app.services.whatsapp_service import (
 from app.services.property_service import get_properties_by_property_type
 from time import time
 from app.services.websocket_manager import notify_admins
+import re
+
 
 user_context = {}   ## contexto simple en memoria para cada usuario (se pierde si se reinicia el servidor, pero es suficiente para este ejemplo)
 recent_messages = {}  ## para evitar mensajes duplicados
@@ -191,6 +193,10 @@ async def receive_message(request: Request):
             text_lower = text.lower().strip()
         print("TEXTO:", text)
         
+        match = re.search(r"id:\s*(\d+)", text_lower)
+        if match:
+            property_id = match.group(1)
+        
         # ✅ menú SOLO primera vez
         valid_inputs = [
             "hola", "dia", "tardes",
@@ -232,7 +238,7 @@ async def receive_message(request: Request):
             name=name,
             phone=phone,
             message=text,
-            property_id=None,
+            property_id=property_id if 'property_id' in locals() else None,
             source="whatsapp",
         )
 
@@ -338,8 +344,25 @@ async def receive_message(request: Request):
             })
             return
 
+        if property_id:
+            print("🏡 Lead directo desde web detectado")
+            if contact:
+                contact.status = "human"
+                db.commit()
+            await notify_admins({
+                "type": "new_lead",
+                "phone": phone,
+                "property_id": property_id,
+                "message": text
+            })
+            send_whatsapp_message(
+                phone,
+                "🙌 Gracias por tu consulta. Un asesor te responde por acá."
+            )
+            db.close()
+            return {"status": "direct_property_lead"}
 
-        # 🟢 MENÚ PRINCIPAL   ###################################
+        # 🟢 MENÚ PRINCIPAL   #################################
         if contact and contact.status != "human":
             if ctx.get("step") == "results" and text_lower not in ["menu", "inicio"]:
                 contact.status = "human"
@@ -351,7 +374,6 @@ async def receive_message(request: Request):
                     "name": contact.name if contact else "Unknown"
                 })
                 return {"status": "escalated to human"}
-
 
         # 🟡 FALLBACK
         send_main_menu(phone)
@@ -402,6 +424,26 @@ def send_and_save(db, phone, text, contact):
     )
     db.add(new_msg)
     db.commit()
+
+
+        # if "quiero consultar por la propiedad" in text_lower or "link:" in text_lower:
+        #     print("🏡 Lead directo desde web detectado")
+        #     if contact:
+        #         contact.status = "human"
+        #         db.commit()
+        #     # notificar admin
+        #     await notify_admins({
+        #         "type": "new_lead",
+        #         "phone": phone,
+        #         "message": text
+        #     })
+        #     send_whatsapp_message(
+        #         phone,
+        #         "🙌 Gracias por tu consulta. Un asesor te va a responder directamente por acá."
+        #     )
+        #     db.close()
+        #     return {"status": "direct_property_lead"}
+
 
 
 
