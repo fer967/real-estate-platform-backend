@@ -259,7 +259,8 @@ async def receive_message(request: Request):
             "comprar", "alquilar", "otras", "menu", "inicio",
             "vender", "buenas", "asesor",
             "departamento", "casa", "local", "terreno",
-            "mas_tipos"]:   
+            "mas_tipos"
+            ]:   
             ctx["step"] = "menu"
             send_main_menu(phone)
             return
