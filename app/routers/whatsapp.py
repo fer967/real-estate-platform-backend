@@ -16,7 +16,7 @@ from app.services.whatsapp_service import (
 )
 from app.services.property_service import get_properties_by_property_type
 from time import time
-from main import notify_admins
+from app.main import notify_admins
 
 user_context = {}   ## contexto simple en memoria para cada usuario (se pierde si se reinicia el servidor, pero es suficiente para este ejemplo)
 recent_messages = {}  ## para evitar mensajes duplicados
