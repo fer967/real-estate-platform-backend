@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from app.routers import analisys, properties, leads, dashboard, whatsapp, idecor, security
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import WebSocket, WebSocketDisconnect
-import json
+from app.services.websocket_manager import connect, disconnect
 
 app = FastAPI(title="Real Estate Platform API")
 
@@ -10,24 +10,12 @@ active_connections = []
 
 @app.websocket("/ws/admin")
 async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    active_connections.append(websocket)
+    await connect(websocket)
     try:
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
-        active_connections.remove(websocket)
-
-
-async def notify_admins(event: dict):
-    disconnected = []
-    for connection in active_connections:
-        try:
-            await connection.send_text(json.dumps(event))
-        except:
-            disconnected.append(connection)
-    for conn in disconnected:
-        active_connections.remove(conn)
+        disconnect(websocket)
 
 origins = [
     "http://localhost:5173",
@@ -55,3 +43,25 @@ def root():
     return {"message": "API running"}
 
 # uvicorn app.main:app --reload
+
+
+# @app.websocket("/ws/admin")
+# async def websocket_endpoint(websocket: WebSocket):
+#     await websocket.accept()
+#     active_connections.append(websocket)
+#     try:
+#         while True:
+#             await websocket.receive_text()
+#     except WebSocketDisconnect:
+#         active_connections.remove(websocket)
+
+
+# async def notify_admins(event: dict):
+#     disconnected = []
+#     for connection in active_connections:
+#         try:
+#             await connection.send_text(json.dumps(event))
+#         except:
+#             disconnected.append(connection)
+#     for conn in disconnected:
+#         active_connections.remove(conn)
