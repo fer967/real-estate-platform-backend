@@ -191,12 +191,40 @@ async def receive_message(request: Request):
         else:
             text = message.get("text", {}).get("body", "")
             text_lower = text.lower().strip()
+
+
         print("TEXTO:", text)
-        
-        match = re.search(r"id:\s*(\d+)", text_lower)
+
+        # 👉 detectar property_id
+        property_id = None
+        match = re.search(r"ref:\s*([a-z0-9\-]+)", text_lower)
         if match:
             property_id = match.group(1)
-        
+            print("🏠 Property ID detectado:", property_id)
+
+        # 🚨 PRIORIDAD MÁXIMA
+        if property_id:
+            print("🏡 Lead directo desde web detectado")
+            print("🏠 Property ID detectado:", property_id)
+            db = SessionLocal()
+            contact = db.query(Contact).filter(Contact.phone == phone).first()
+            if contact:
+                contact.status = "human"
+                db.commit()
+            await notify_admins({
+                "type": "new_lead",
+                "phone": phone,
+                "property_id": property_id,
+                "message": text
+            })
+            send_whatsapp_message(
+                phone,
+                "🙌 Gracias por tu consulta. Un asesor te responde por acá."
+            )
+            db.close()
+            return {"status": "direct_property_lead"}
+
+
         # ✅ menú SOLO primera vez
         valid_inputs = [
             "hola", "dia", "tardes",
@@ -210,10 +238,13 @@ async def receive_message(request: Request):
             ctx["step"] = "menu"
             send_main_menu(phone)
             return {"status": "menu auto"}
-        if text_lower not in valid_inputs and ctx.get("step") != "results":
+
+
+        if text_lower not in valid_inputs and ctx.get("step") != "results":  #########
             ctx["step"] = "menu"
             send_main_menu(phone)
             return {"status": "menu auto"}
+
 
         # 🧠 CONTEXTO (siempre seguro)
         if phone not in user_context:
@@ -244,7 +275,7 @@ async def receive_message(request: Request):
 
         contact = db.query(Contact).filter(Contact.phone == phone).first()
 
-        # 🚫 modo humano   ############################################
+        # 🚫 modo humano   
         if contact and contact.status == "human":
             await notify_admins({
                 "type": "new_message",
@@ -344,25 +375,8 @@ async def receive_message(request: Request):
             })
             return
 
-        if property_id:
-            print("🏡 Lead directo desde web detectado")
-            if contact:
-                contact.status = "human"
-                db.commit()
-            await notify_admins({
-                "type": "new_lead",
-                "phone": phone,
-                "property_id": property_id,
-                "message": text
-            })
-            send_whatsapp_message(
-                phone,
-                "🙌 Gracias por tu consulta. Un asesor te responde por acá."
-            )
-            db.close()
-            return {"status": "direct_property_lead"}
 
-        # 🟢 MENÚ PRINCIPAL   #################################
+        # 🟢 MENÚ PRINCIPAL   
         if contact and contact.status != "human":
             if ctx.get("step") == "results" and text_lower not in ["menu", "inicio"]:
                 contact.status = "human"
