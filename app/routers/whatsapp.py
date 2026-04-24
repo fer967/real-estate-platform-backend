@@ -238,7 +238,7 @@ async def receive_message(request: Request):
 
         contact = db.query(Contact).filter(Contact.phone == phone).first()
 
-        # 🚫 modo humano
+        # 🚫 modo humano   ############################################
         if contact and contact.status == "human":
             await notify_admins({
                 "type": "new_message",
@@ -246,10 +246,9 @@ async def receive_message(request: Request):
                 "message": text,
                 "timestamp": time()
             })
-        # if contact and contact.status == "human":
-        #     print("👤 Conversación humana activa")
-        #     db.close()
-        #     return {"status": "human"}
+            db.close()
+            return {"status": "human"}
+
 
         # 🔄 HubSpot
         if contact and contact.hubspot_id:
@@ -340,18 +339,22 @@ async def receive_message(request: Request):
             return
 
 
-        # 🟢 MENÚ PRINCIPAL
-
-        if ctx.get("step") == "results" and text_lower not in ["menu", "inicio"]:
-            if contact:
+        # 🟢 MENÚ PRINCIPAL   ###################################
+        if contact and contact.status != "human":
+            if ctx.get("step") == "results" and text_lower not in ["menu", "inicio"]:
                 contact.status = "human"
                 db.commit()
-            send_whatsapp_message(phone, "🙌 Te paso con un asesor para ayudarte mejor.")
-            return {"status": "escalated to human"}
+                send_whatsapp_message(phone, "🙌 Te paso con un asesor para ayudarte mejor.")
+                await notify_admins({
+                    "type": "new_lead",
+                    "phone": phone,
+                    "name": contact.name if contact else "Unknown"
+                })
+                return {"status": "escalated to human"}
+
 
         # 🟡 FALLBACK
         send_main_menu(phone)
-        # send_interactive_menu(phone)
         db.close()
         return {"status": "fallback"}
 
