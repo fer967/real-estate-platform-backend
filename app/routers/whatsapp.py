@@ -194,7 +194,6 @@ async def receive_message(request: Request):
             text = message.get("text", {}).get("body", "")
             text_lower = text.lower().strip()
 
-
         print("TEXTO:", text)
 
         # 👉 detectar property_id
@@ -279,7 +278,7 @@ async def receive_message(request: Request):
             return {"status": "menu auto"}
 
 
-        if text_lower not in valid_inputs and ctx.get("step") != "results":  #########
+        if text_lower not in valid_inputs and ctx.get("step") != "results": 
             ctx["step"] = "menu"
             send_main_menu(phone)
             return {"status": "menu auto"}
@@ -392,7 +391,38 @@ async def receive_message(request: Request):
             else:
                 properties = get_properties_by_property_type(db, text_lower)
 
+
             msg = "🏡 Propiedades disponibles:\n\n"
+            
+            if not properties:
+                print("⚠️ Sin propiedades encontradas")
+                # 👤 pasar a humano
+                if contact:
+                    contact.status = "human"
+                    db.commit()
+                # 📲 notificar admin
+                admin_msg = f"""📩 Lead sin resultados
+            👤 {contact.name if contact else 'Unknown'}
+            📱 {phone}
+            🔎 Búsqueda: {text_lower}
+            💬 Mensaje:
+            {text}
+            """
+                send_whatsapp_message(ADMIN_PHONE, admin_msg)
+                # 🔔 notificar panel (websocket)
+                await notify_admins({
+                    "type": "no_results_lead",
+                    "phone": phone,
+                    "message": text
+                })
+                # 🤖 responder usuario
+                send_whatsapp_message(
+                    phone,
+                    "😕 No encontramos propiedades con esas características.\n\n🙌 Te paso con un asesor para ayudarte mejor."
+                )
+                return
+
+
             for prop in properties:
                 msg += f"📌 {prop.title}\n"
                 msg += f"📍 {prop.price}\n"
@@ -400,6 +430,7 @@ async def receive_message(request: Request):
                 msg += f" si querés más info escribí *asesor*\n"
             send_whatsapp_message(phone, msg)
             return
+
 
         # 🔹 ASESOR
         if "asesor" in text_lower:
