@@ -205,18 +205,43 @@ async def receive_message(request: Request):
         # 🚨 PRIORIDAD MÁXIMA
         if property_id:
             print("🏡 Lead directo desde web detectado")
-            print("🏠 Property ID detectado:", property_id)
             db = SessionLocal()
+            # 👤 nombre
+            contacts = value.get("contacts", [])
+            name = "WhatsApp User"
+            if contacts:
+                name = contacts[0].get("profile", {}).get("name", name)
+            # 🔍 buscar o crear contacto
             contact = db.query(Contact).filter(Contact.phone == phone).first()
-            if contact:
+            if not contact:
+                contact = Contact(
+                    name=name,
+                    phone=phone,
+                    status="human"
+                )
+                db.add(contact)
+                db.commit()
+                db.refresh(contact)
+            else:
                 contact.status = "human"
                 db.commit()
+            # 💾 GUARDAR LEAD (🔥 esto te faltaba)
+            create_lead_service(
+                db=db,
+                name=name,
+                phone=phone,
+                message=text,
+                property_id=property_id,
+                source="whatsapp",
+            )
+            # 🔔 notificar admin
             await notify_admins({
                 "type": "new_lead",
                 "phone": phone,
                 "property_id": property_id,
                 "message": text
             })
+            # 🤖 respuesta al usuario
             send_whatsapp_message(
                 phone,
                 "🙌 Gracias por tu consulta. Un asesor te responde por acá."
