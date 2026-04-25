@@ -8,8 +8,8 @@ SECRET_KEY = "tu_clave_secreta"
 ALGORITHM = "HS256"
 
 FAKE_USER = {
-    "username": "admin",
-    "password": "1234"
+    "username": "pascual",
+    "password": "1946"
 }
 
 @router.post("/login")

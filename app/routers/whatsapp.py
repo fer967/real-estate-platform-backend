@@ -520,23 +520,6 @@ def send_and_save(db, phone, text, contact):
     db.commit()
 
 
-        # if "quiero consultar por la propiedad" in text_lower or "link:" in text_lower:
-        #     print("🏡 Lead directo desde web detectado")
-        #     if contact:
-        #         contact.status = "human"
-        #         db.commit()
-        #     # notificar admin
-        #     await notify_admins({
-        #         "type": "new_lead",
-        #         "phone": phone,
-        #         "message": text
-        #     })
-        #     send_whatsapp_message(
-        #         phone,
-        #         "🙌 Gracias por tu consulta. Un asesor te va a responder directamente por acá."
-        #     )
-        #     db.close()
-        #     return {"status": "direct_property_lead"}
 
 
 
