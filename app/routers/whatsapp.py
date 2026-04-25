@@ -3,6 +3,7 @@ from fastapi import APIRouter, Request, HTTPException
 import os
 import requests
 from dotenv import load_dotenv
+from sqlalchemy import text
 from app.integrations.hubspot import update_hubspot_contact
 from app.models.contact import Contact
 from app.models.lead import Lead
@@ -21,7 +22,7 @@ import re
 
 
 user_context = {}   ## contexto simple en memoria para cada usuario (se pierde si se reinicia el servidor, pero es suficiente para este ejemplo)
-recent_messages = {}  ## para evitar mensajes duplicados
+recent_messages = {}  
 processed_messages = set()
 
 load_dotenv()
@@ -30,6 +31,7 @@ router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
 
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 ACCESS_TOKEN = os.getenv("WHATSAPP_TOKEN")
+ADMIN_PHONE = os.getenv("ADMIN_PHONE")
 
 
 # 🔐 VERIFY WEBHOOK
@@ -241,6 +243,18 @@ async def receive_message(request: Request):
                 "property_id": property_id,
                 "message": text
             })
+
+            # 📲 notificar admin por WhatsApp
+            admin_msg = f"""📩 Nuevo lead desde web
+            👤 {name}
+            📱 {phone}
+            🏠 Propiedad ID: {property_id}
+            💬 Mensaje:
+            {text}
+            """
+            send_whatsapp_message(ADMIN_PHONE, admin_msg)
+
+
             # 🤖 respuesta al usuario
             send_whatsapp_message(
                 phone,
@@ -398,6 +412,16 @@ async def receive_message(request: Request):
                 "phone": phone,
                 "name": contact.name if contact else "Unknown"
             })
+
+            send_whatsapp_message(
+            ADMIN_PHONE,
+            f"""📩 Nuevo lead (solicitó asesor)
+            👤 {contact.name if contact else 'Unknown'}
+            📱 {phone}
+            💬 {text}
+            """
+            )
+
             return
 
 
