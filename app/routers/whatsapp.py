@@ -32,6 +32,7 @@ router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 ACCESS_TOKEN = os.getenv("WHATSAPP_TOKEN")
 ADMIN_PHONE = os.getenv("ADMIN_PHONE")
+PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
 
 
 # 🔐 VERIFY WEBHOOK
@@ -150,43 +151,114 @@ def send_property_menu_extra(to):
     print("📤 RESPONSE:", response.text)
 
 
+###############################################################
+# def send_messenger_message(psid, text):
+#     url = "https://graph.facebook.com/v19.0/me/messages"
+#     params = {"access_token": PAGE_ACCESS_TOKEN}
+#     payload = {
+#         "recipient": {"id": psid},
+#         "message": {"text": text}
+#     }
+#     requests.post(url, params=params, json=payload)
+
+
 # 📥 RECEIVE WEBHOOK
 @router.post("/webhook")
 async def receive_message(request: Request):
     body = await request.json()
-
+    
     try:
         entry = body["entry"][0]
+
+        # ======================================================
+        # 📩 MESSENGER
+        # ======================================================
+        if "messaging" in entry:
+            messaging_event = entry["messaging"][0]
+
+            sender_id = messaging_event["sender"]["id"]
+            text = ""
+
+            if "message" in messaging_event:
+                text = messaging_event["message"].get("text", "")
+
+            print("📩 Messenger:", text)
+
+            db = SessionLocal()
+
+            # detectar propiedad en link
+            property_id = None
+            match = re.search(r"property/([a-z0-9\-]+)", text.lower())
+            if match:
+                property_id = match.group(1)
+
+            # crear lead
+            create_lead_service(
+                db=db,
+                name="Facebook User",
+                phone=sender_id,
+                message=text,
+                property_id=property_id,
+                source="messenger",
+            )
+
+            # notificar admin (panel)
+            await notify_admins({
+                "type": "new_lead",
+                "channel": "messenger",
+                "phone": sender_id,
+                "message": text
+            })
+
+            # notificar admin por WhatsApp
+            send_whatsapp_message(
+                ADMIN_PHONE,
+                f"""📩 Nuevo lead desde Messenger
+👤 Facebook User
+🆔 {sender_id}
+💬 {text}
+"""
+            )
+
+            db.close()
+            return {"status": "messenger_lead"}
+
+        # ======================================================
+        # 📲 WHATSAPP (tu lógica original)
+        # ======================================================
+
         changes = entry["changes"][0]
         value = changes["value"]
 
         if "messages" not in value:
             return {"status": "no message event"}
-        
+
         message = value["messages"][0]
         phone = message["from"]
-        
-        # ✅ evitar duplicados
+        source = "whatsapp"
+
+        # evitar duplicados
         message_id = message.get("id")
         if message_id in processed_messages:
             print("⚠️ Mensaje duplicado ignorado")
             return {"status": "duplicate"}
         processed_messages.add(message_id)
-        
-        # ✅ asegurar contexto SIEMPRE
+
+        # contexto
         is_new_user = phone not in user_context
         if is_new_user:
             user_context[phone] = {
                 "operation": None,
                 "type": None,
-                "step" : "menu"
+                "step": "menu"
             }
 
         ctx = user_context[phone]
 
-        # 👇 detectar texto
+        # detectar texto
         interactive = message.get("interactive", {})
         button_reply = interactive.get("button_reply", {})
+
         if button_reply:
             text = button_reply.get("title", "")
             text_lower = button_reply.get("id", "").lower()
@@ -194,48 +266,46 @@ async def receive_message(request: Request):
             text = message.get("text", {}).get("body", "")
             text_lower = text.lower().strip()
 
-        print("TEXTO:", text)
+        print("📲 WhatsApp:", text)
 
-        # 👉 detectar property_id
+        # detectar property_id
         property_id = None
         match = re.search(r"ref:\s*([a-z0-9\-]+)", text_lower)
         if match:
             property_id = match.group(1)
             print("🏠 Property ID detectado:", property_id)
 
-        # 🚨 PRIORIDAD MÁXIMA
+        # ======================================================
+        # 🚨 LEAD DIRECTO DESDE WEB
+        # ======================================================
         if property_id:
             print("🏡 Lead directo desde web detectado")
+
             db = SessionLocal()
-            # 👤 nombre
+
             contacts = value.get("contacts", [])
-            name = "WhatsApp User"
-            if contacts:
-                name = contacts[0].get("profile", {}).get("name", name)
-            # 🔍 buscar o crear contacto
+            name = contacts[0].get("profile", {}).get("name", "WhatsApp User") if contacts else "WhatsApp User"
+
             contact = db.query(Contact).filter(Contact.phone == phone).first()
+
             if not contact:
-                contact = Contact(
-                    name=name,
-                    phone=phone,
-                    status="human"
-                )
+                contact = Contact(name=name, phone=phone, status="human")
                 db.add(contact)
                 db.commit()
                 db.refresh(contact)
             else:
                 contact.status = "human"
                 db.commit()
-            # 💾 GUARDAR LEAD (🔥 esto te faltaba)
+
             create_lead_service(
                 db=db,
                 name=name,
                 phone=phone,
                 message=text,
                 property_id=property_id,
-                source="whatsapp",
+                source=source,
             )
-            # 🔔 notificar admin
+
             await notify_admins({
                 "type": "new_lead",
                 "phone": phone,
@@ -243,76 +313,198 @@ async def receive_message(request: Request):
                 "message": text
             })
 
-            # 📲 notificar admin por WhatsApp
-            admin_msg = f"""📩 Nuevo lead desde web
-            👤 {name}
-            📱 {phone}
-            🏠 Propiedad ID: {property_id}
-            💬 Mensaje:
-            {text}
-            """
-            send_whatsapp_message(ADMIN_PHONE, admin_msg)
+            send_whatsapp_message(
+                ADMIN_PHONE,
+                f"""📩 Nuevo lead desde web
+👤 {name}
+📱 {phone}
+🏠 Propiedad ID: {property_id}
+💬 {text}
+"""
+            )
 
-
-            # 🤖 respuesta al usuario
             send_whatsapp_message(
                 phone,
                 "🙌 Gracias por tu consulta. Un asesor te responde por acá."
             )
+
             db.close()
             return {"status": "direct_property_lead"}
 
-
-        # ✅ menú SOLO primera vez
-        valid_inputs = [
-            "hola", "dia", "tardes",
-            "comprar", "alquilar", "otras", "menu", "inicio",
-            "vender", "buenas", "asesor",
-            "departamento", "casa", "local", "terreno",
-            "mas_tipos"
-        ]
-
-        if is_new_user:
-            ctx["step"] = "menu"
-            send_main_menu(phone)
-            return {"status": "menu auto"}
-
-
-        if text_lower not in valid_inputs and ctx.get("step") != "results": 
-            ctx["step"] = "menu"
-            send_main_menu(phone)
-            return {"status": "menu auto"}
-
-
-        # 🧠 CONTEXTO (siempre seguro)
-        if phone not in user_context:
-            
-            user_context[phone] = {
-                "operation": None,
-                "type": None,
-                "step" : "menu"
-            }
-
+        # ======================================================
+        # 💾 GUARDAR LEAD NORMAL
+        # ======================================================
         db = SessionLocal()
 
-        # 👤 nombre
         contacts = value.get("contacts", [])
-        name = "WhatsApp User"
-        if contacts:
-            name = contacts[0].get("profile", {}).get("name", name)
+        name = contacts[0].get("profile", {}).get("name", "WhatsApp User") if contacts else "WhatsApp User"
 
-        # 💾 guardar lead
         create_lead_service(
             db=db,
             name=name,
             phone=phone,
             message=text,
-            property_id=property_id if 'property_id' in locals() else None,
-            source="whatsapp",
+            property_id=None,
+            source=source,
         )
 
-        contact = db.query(Contact).filter(Contact.phone == phone).first()
 
+    # try:
+    #     entry = body["entry"][0]   
+    #     changes = entry["changes"][0]
+    #     value = changes["value"]
+
+    #     if "messages" not in value:
+    #         return {"status": "no message event"}
+        
+    #     message = value["messages"][0]
+    #     phone = message["from"]
+        
+    #     # ✅ evitar duplicados
+    #     message_id = message.get("id")
+    #     if message_id in processed_messages:
+    #         print("⚠️ Mensaje duplicado ignorado")
+    #         return {"status": "duplicate"}
+    #     processed_messages.add(message_id)
+        
+    #     # ✅ asegurar contexto SIEMPRE
+    #     is_new_user = phone not in user_context
+    #     if is_new_user:
+    #         user_context[phone] = {
+    #             "operation": None,
+    #             "type": None,
+    #             "step" : "menu"
+    #         }
+
+    #     ctx = user_context[phone]
+
+    #     # 👇 detectar texto
+    #     interactive = message.get("interactive", {})
+    #     button_reply = interactive.get("button_reply", {})
+    #     if button_reply:
+    #         text = button_reply.get("title", "")
+    #         text_lower = button_reply.get("id", "").lower()
+    #     else:
+    #         text = message.get("text", {}).get("body", "")
+    #         text_lower = text.lower().strip()
+
+    #     print("TEXTO:", text)
+
+    #     # 👉 detectar property_id
+    #     property_id = None
+    #     match = re.search(r"ref:\s*([a-z0-9\-]+)", text_lower)
+    #     if match:
+    #         property_id = match.group(1)
+    #         print("🏠 Property ID detectado:", property_id)
+
+    #     # 🚨 PRIORIDAD MÁXIMA
+    #     if property_id:
+    #         print("🏡 Lead directo desde web detectado")
+    #         db = SessionLocal()
+    #         # 👤 nombre
+    #         contacts = value.get("contacts", [])
+    #         name = "WhatsApp User"
+    #         if contacts:
+    #             name = contacts[0].get("profile", {}).get("name", name)
+    #         # 🔍 buscar o crear contacto
+    #         contact = db.query(Contact).filter(Contact.phone == phone).first()
+    #         if not contact:
+    #             contact = Contact(
+    #                 name=name,
+    #                 phone=phone,
+    #                 status="human"
+    #             )
+    #             db.add(contact)
+    #             db.commit()
+    #             db.refresh(contact)
+    #         else:
+    #             contact.status = "human"
+    #             db.commit()
+
+    #         # 💾 GUARDAR LEAD 
+    #         create_lead_service(
+    #             db=db,
+    #             name=name,
+    #             phone=phone,
+    #             message=text,
+    #             property_id=property_id,
+    #             source="whatsapp",
+    #         )
+    #         # 🔔 notificar admin
+    #         await notify_admins({
+    #             "type": "new_lead",
+    #             "phone": phone,
+    #             "property_id": property_id,
+    #             "message": text
+    #         })
+
+    #         # 📲 notificar admin por WhatsApp
+    #         admin_msg = f"""📩 Nuevo lead desde web
+    #         👤 {name}
+    #         📱 {phone}
+    #         🏠 Propiedad ID: {property_id}
+    #         💬 Mensaje:
+    #         {text}
+    #         """
+    #         send_whatsapp_message(ADMIN_PHONE, admin_msg)
+
+    #         # 🤖 respuesta al usuario  
+    #         send_whatsapp_message(
+    #             phone,
+    #             "🙌 Gracias por tu consulta. Un asesor te responde por acá."
+    #         )
+    #         db.close()
+    #         return {"status": "direct_property_lead"}
+
+    #     # ✅ menú SOLO primera vez
+    #     valid_inputs = [
+    #         "hola", "dia", "tardes",
+    #         "comprar", "alquilar", "otras", "menu", "inicio",
+    #         "vender", "buenas", "asesor",
+    #         "departamento", "casa", "local", "terreno",
+    #         "mas_tipos"
+    #     ]
+
+    #     if is_new_user:
+    #         ctx["step"] = "menu"
+    #         send_main_menu(phone)
+    #         return {"status": "menu auto"}
+
+    #     if text_lower not in valid_inputs and ctx.get("step") != "results": 
+    #         ctx["step"] = "menu"
+    #         send_main_menu(phone)
+    #         return {"status": "menu auto"}
+
+    #     # 🧠 CONTEXTO (siempre seguro)
+    #     if phone not in user_context:
+            
+    #         user_context[phone] = {
+    #             "operation": None,
+    #             "type": None,
+    #             "step" : "menu"
+    #         }
+
+    #     db = SessionLocal()
+
+    #     # 👤 nombre
+    #     contacts = value.get("contacts", [])
+    #     name = "WhatsApp User"
+    #     if contacts:
+    #         name = contacts[0].get("profile", {}).get("name", name)
+
+    #     # 💾 guardar lead
+    #     create_lead_service(
+    #         db=db,
+    #         name=name,
+    #         phone=phone,
+    #         message=text,
+    #         property_id=property_id if 'property_id' in locals() else None,
+    #         source="whatsapp",
+    #     )
+
+
+
+        contact = db.query(Contact).filter(Contact.phone == phone).first()
         # 🚫 modo humano   
         if contact and contact.status == "human":
             await notify_admins({
@@ -323,7 +515,6 @@ async def receive_message(request: Request):
             })
             db.close()
             return {"status": "human"}
-
 
         # 🔄 HubSpot
         if contact and contact.hubspot_id:
@@ -391,7 +582,6 @@ async def receive_message(request: Request):
             else:
                 properties = get_properties_by_property_type(db, text_lower)
 
-
             msg = "🏡 Propiedades disponibles:\n\n"
             
             if not properties:
@@ -422,7 +612,6 @@ async def receive_message(request: Request):
                 )
                 return
 
-
             for prop in properties:
                 msg += f"📌 {prop.title}\n"
                 msg += f"📍 {prop.price}\n"
@@ -430,7 +619,6 @@ async def receive_message(request: Request):
                 msg += f" si querés más info escribí *asesor*\n"
             send_whatsapp_message(phone, msg)
             return
-
 
         # 🔹 ASESOR
         if "asesor" in text_lower:
@@ -454,7 +642,6 @@ async def receive_message(request: Request):
             )
 
             return
-
 
         # 🟢 MENÚ PRINCIPAL   
         if contact and contact.status != "human":
