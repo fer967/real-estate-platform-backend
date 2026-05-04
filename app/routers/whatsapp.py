@@ -197,9 +197,11 @@ async def receive_message(request: Request):
                 property_id = match.group(1)
 
             # crear lead
+            name=get_messenger_user_name(sender_id)
+            
             create_lead_service(
                 db=db,
-                name=get_messenger_user_name(sender_id),
+                name=name,
                 phone=sender_id,
                 message=text,
                 property_id=property_id,
@@ -218,7 +220,7 @@ async def receive_message(request: Request):
             send_whatsapp_message(
                 ADMIN_PHONE,
                 f"""📩 Nuevo lead desde Messenger
-👤 Facebook User
+👤 {name}
 🆔 {sender_id}
 💬 {text}
 """
