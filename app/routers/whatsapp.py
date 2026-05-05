@@ -13,6 +13,7 @@ from app.core.database import SessionLocal
 from app.services.whatsapp_service import (
     WHATSAPP_TOKEN,
     PHONE_NUMBER_ID,
+    send_message,
     send_whatsapp_message
 )
 from app.services.property_service import get_properties_by_property_type
@@ -208,8 +209,8 @@ async def receive_message(request: Request):
                 db.add(contact)
                 db.commit()
                 db.refresh(contact)
-            
-            
+
+
             # 🔍 detectar teléfono
             phone_detected = extract_phone(text)
             if phone_detected:
@@ -236,38 +237,6 @@ async def receive_message(request: Request):
                     if current_contact:
                         current_contact.phone = phone_detected
                 db.commit()
-        
-        
-        # if "messaging" in entry:
-        #     phone_detected = extract_phone(text)
-        #     if phone_detected:
-        #         print("📱 Teléfono detectado:", phone_detected)
-        #         existing_contact = db.query(Contact).filter(
-        #             Contact.phone == phone_detected
-        #         ).first()
-        #         current_contact = db.query(Contact).filter(
-        #             Contact.phone == sender_id
-        #         ).first()
-        #         if existing_contact:
-        #         # 🔄 ya existe → vincular
-        #             print("🔗 Vinculando contactos")
-        #             # opcional: migrar leads si querés
-        #             leads = db.query(Lead).filter(Lead.phone == sender_id).all()
-        #             for lead in leads:
-        #                 lead.phone = phone_detected
-        #             db.delete(current_contact)
-        #         else:
-        #             # 🆕 actualizar contacto actual
-        #             print("🆕 Actualizando contacto con teléfono real")
-        #             current_contact.phone = phone_detected
-        #         db.commit()
-        #     messaging_event = entry["messaging"][0]
-        #     sender_id = messaging_event["sender"]["id"]
-        #     text = ""
-        #     if "message" in messaging_event:
-        #         text = messaging_event["message"].get("text", "")
-        #     print("📩 Messenger:", text)
-        #     db = SessionLocal()
 
 
             # detectar propiedad en link
@@ -408,11 +377,13 @@ async def receive_message(request: Request):
 💬 {text}
 """
             )
+            
+            send_message(contact, "🙌 Gracias por tu consulta. Un asesor te responde por acá.")
 
-            send_whatsapp_message(
-                phone,
-                "🙌 Gracias por tu consulta. Un asesor te responde por acá."
-            )
+            # send_whatsapp_message(
+            #     phone,
+            #     "🙌 Gracias por tu consulta. Un asesor te responde por acá."
+            # )
 
             db.close()
             return {"status": "direct_property_lead"}
@@ -493,7 +464,8 @@ async def receive_message(request: Request):
         # 🔹 VENDER
         if text_lower == "vender":
             ctx["step"] = "vender"
-            send_whatsapp_message(phone, "📊 Podés buscar tasaciones en la barra de búsqueda o escribir *asesor*")
+            send_message(contact, "📊 Podés buscar tasaciones en la barra de búsqueda o escribir *asesor*")
+            # send_whatsapp_message(phone, "📊 Podés buscar tasaciones en la barra de búsqueda o escribir *asesor*")
             db.close()
             return
 
@@ -536,10 +508,7 @@ async def receive_message(request: Request):
                     "message": text
                 })
                 # 🤖 responder usuario
-                send_whatsapp_message(
-                    phone,
-                    "😕 No encontramos propiedades con esas características.\n\n🙌 Te paso con un asesor para ayudarte mejor."
-                )
+                send_message(contact, "😕 No encontramos propiedades con esas características.\n\n🙌 Te paso con un asesor para ayudarte mejor.")
                 return
 
             for prop in properties:
@@ -547,7 +516,7 @@ async def receive_message(request: Request):
                 msg += f"📍 {prop.price}\n"
                 msg += f"\n\n🔗 Ver propiedad:\nhttps://frontend-plataforma-inmobiliaria.onrender.com/property/{prop.id}\n\n"
                 msg += f" si querés más info escribí *asesor*\n"
-            send_whatsapp_message(phone, msg)
+            send_whatsapp_message(contact, msg)
             return
 
         # 🔹 ASESOR
@@ -555,7 +524,7 @@ async def receive_message(request: Request):
             if contact:
                 contact.status = "human"
                 db.commit()
-            send_whatsapp_message(phone, "🙌 Un asesor te escribe en breve.")
+            send_message(contact, "🙌 Un asesor te escribe en breve.")
             await notify_admins({
                 "type": "new_lead",
                 "phone": phone,
@@ -578,7 +547,8 @@ async def receive_message(request: Request):
             if ctx.get("step") == "results" and text_lower not in ["menu", "inicio"]:
                 contact.status = "human"
                 db.commit()
-                send_whatsapp_message(phone, "🙌 Te paso con un asesor para ayudarte mejor.")
+                send_message(contact, "🙌 Te paso con un asesor para ayudarte mejor.")
+                # send_whatsapp_message(phone, "🙌 Te paso con un asesor para ayudarte mejor.")
                 await notify_admins({
                     "type": "new_lead",
                     "phone": phone,
@@ -623,18 +593,18 @@ def send_whatsapp(data: dict):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def send_and_save(db, phone, text, contact):
-    send_whatsapp_message(phone, text)
-    new_msg = Lead(
-        name=contact.name,
-        phone=phone,
-        message=text,
-        contact_id=contact.id,
-        source="whatsapp",
-        status="sent"
-    )
-    db.add(new_msg)
-    db.commit()
+# def send_and_save(db, phone, text, contact):
+#     send_whatsapp_message(phone, text)
+#     new_msg = Lead(
+#         name=contact.name,
+#         phone=phone,
+#         message=text,
+#         contact_id=contact.id,
+#         source="whatsapp",
+#         status="sent"
+#     )
+#     db.add(new_msg)
+#     db.commit()
 
 
 
