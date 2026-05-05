@@ -179,19 +179,6 @@ async def receive_message(request: Request):
     try:
         entry = body["entry"][0]
         
-        contact = db.query(Contact).filter(
-            Contact.messenger_id == sender_id
-        ).first()
-        if not contact:
-            contact = Contact(
-                name=name,
-                messenger_id=sender_id,
-                status="human"
-            )
-            db.add(contact)
-            db.commit()
-            db.refresh(contact)
-
         # ======================================================
         # 📩 MESSENGER
         # ======================================================
@@ -204,6 +191,25 @@ async def receive_message(request: Request):
                 text = messaging_event["message"].get("text", "")
             print("📩 Messenger:", text)
             db = SessionLocal()
+            
+            # 👤 nombre
+            name = get_messenger_user_name(sender_id)
+
+            # 🔍 buscar o crear contacto
+            contact = db.query(Contact).filter(
+                Contact.messenger_id == sender_id
+            ).first()
+            if not contact:
+                contact = Contact(
+                    name=name,
+                    messenger_id=sender_id,
+                    status="human"
+                )
+                db.add(contact)
+                db.commit()
+                db.refresh(contact)
+            
+            
             # 🔍 detectar teléfono
             phone_detected = extract_phone(text)
             if phone_detected:
