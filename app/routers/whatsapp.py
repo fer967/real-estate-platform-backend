@@ -166,6 +166,11 @@ def get_messenger_user_name(psid):
         return "Facebook User"
 
 
+def extract_phone(text):
+    match = re.search(r"\b\d{10,15}\b", text)
+    return match.group(0) if match else None
+
+
 # 📥 RECEIVE WEBHOOK
 @router.post("/webhook")
 async def receive_message(request: Request):
@@ -178,6 +183,32 @@ async def receive_message(request: Request):
         # 📩 MESSENGER
         # ======================================================
         if "messaging" in entry:
+            
+            phone_detected = extract_phone(text)
+            
+            if phone_detected:
+                print("📱 Teléfono detectado:", phone_detected)
+                existing_contact = db.query(Contact).filter(
+                    Contact.phone == phone_detected
+                ).first()
+                current_contact = db.query(Contact).filter(
+                    Contact.phone == sender_id
+                ).first()
+                if existing_contact:
+                # 🔄 ya existe → vincular
+                    print("🔗 Vinculando contactos")
+                    # opcional: migrar leads si querés
+                    leads = db.query(Lead).filter(Lead.phone == sender_id).all()
+                    for lead in leads:
+                        lead.phone = phone_detected
+                    db.delete(current_contact)
+                else:
+                    # 🆕 actualizar contacto actual
+                    print("🆕 Actualizando contacto con teléfono real")
+                    current_contact.phone = phone_detected
+                db.commit()
+
+
             messaging_event = entry["messaging"][0]
 
             sender_id = messaging_event["sender"]["id"]
