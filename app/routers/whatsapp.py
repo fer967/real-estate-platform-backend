@@ -195,11 +195,13 @@ async def receive_message(request: Request):
             
             # 👤 nombre
             name = get_messenger_user_name(sender_id)
-
-            # 🔍 buscar o crear contacto
+            
+            
+            # 🔍 buscar contacto por messenger_id
             contact = db.query(Contact).filter(
                 Contact.messenger_id == sender_id
             ).first()
+
             if not contact:
                 contact = Contact(
                     name=name,
@@ -210,33 +212,83 @@ async def receive_message(request: Request):
                 db.commit()
                 db.refresh(contact)
 
-
             # 🔍 detectar teléfono
             phone_detected = extract_phone(text)
+
             if phone_detected:
                 print("📱 Teléfono detectado:", phone_detected)
+
+                # buscar si YA existe ese teléfono
                 existing_contact = db.query(Contact).filter(
                     Contact.phone == phone_detected
                 ).first()
-                current_contact = db.query(Contact).filter(
-                    Contact.messenger_id == sender_id   # 🔥 CORREGIDO
-                ).first()
+
                 if existing_contact:
-                    # 🔄 vincular contactos
-                    print("🔗 Vinculando contactos")
+                    print("🔗 Vinculando cuentas")
+
+                    # mover messenger_id al existente
+                    existing_contact.messenger_id = sender_id
+
+                    # migrar leads del messenger_id → teléfono real
                     leads = db.query(Lead).filter(
                         Lead.phone == sender_id
                     ).all()
+
                     for lead in leads:
                         lead.phone = phone_detected
-                    if current_contact:
-                        db.delete(current_contact)
+
+                    # eliminar el contacto duplicado (el de messenger)
+                    db.delete(contact)
+                    contact = existing_contact
+
                 else:
-                    # 🆕 actualizar contacto actual
-                    print("🆕 Actualizando contacto con teléfono real")
-                    if current_contact:
-                        current_contact.phone = phone_detected
+                    print("🆕 Guardando teléfono en contacto existente")
+                    contact.phone = phone_detected
+
                 db.commit()
+
+
+
+            # # 🔍 buscar o crear contacto
+            # contact = db.query(Contact).filter(
+            #     Contact.messenger_id == sender_id
+            # ).first()
+            # if not contact:
+            #     contact = Contact(
+            #         name=name,
+            #         messenger_id=sender_id,
+            #         status="human"
+            #     )
+            #     db.add(contact)
+            #     db.commit()
+            #     db.refresh(contact)
+            # # 🔍 detectar teléfono
+            # phone_detected = extract_phone(text)
+            # if phone_detected:
+            #     print("📱 Teléfono detectado:", phone_detected)
+            #     existing_contact = db.query(Contact).filter(
+            #         Contact.phone == phone_detected
+            #     ).first()
+            #     current_contact = db.query(Contact).filter(
+            #         Contact.messenger_id == sender_id   # 🔥 CORREGIDO
+            #     ).first()
+            #     if existing_contact:
+            #         # 🔄 vincular contactos
+            #         print("🔗 Vinculando contactos")
+            #         leads = db.query(Lead).filter(
+            #             Lead.phone == sender_id
+            #         ).all()
+            #         for lead in leads:
+            #             lead.phone = phone_detected
+            #         if current_contact:
+            #             db.delete(current_contact)
+            #     else:
+            #         # 🆕 actualizar contacto actual
+            #         print("🆕 Actualizando contacto con teléfono real")
+            #         if current_contact:
+            #             current_contact.phone = phone_detected
+            #     db.commit()
+
 
 
             # detectar propiedad en link
@@ -251,7 +303,7 @@ async def receive_message(request: Request):
             create_lead_service(
                 db=db,
                 name=name,
-                phone=sender_id,
+                phone=contact.phone if contact.phone else sender_id,
                 message=text,
                 property_id=property_id,
                 source="messenger",
@@ -261,7 +313,7 @@ async def receive_message(request: Request):
             await notify_admins({
                 "type": "new_lead",
                 "channel": "messenger",
-                "phone": sender_id,
+                "phone": contact.phone if contact.phone else sender_id,
                 "message": text
             })
 
