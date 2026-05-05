@@ -178,48 +178,91 @@ async def receive_message(request: Request):
     
     try:
         entry = body["entry"][0]
+        
+        contact = db.query(Contact).filter(
+            Contact.messenger_id == sender_id
+        ).first()
+        if not contact:
+            contact = Contact(
+                name=name,
+                messenger_id=sender_id,
+                status="human"
+            )
+            db.add(contact)
+            db.commit()
+            db.refresh(contact)
 
         # ======================================================
         # 📩 MESSENGER
         # ======================================================
+        
         if "messaging" in entry:
-            
+            messaging_event = entry["messaging"][0]
+            sender_id = messaging_event["sender"]["id"]
+            text = ""
+            if "message" in messaging_event:
+                text = messaging_event["message"].get("text", "")
+            print("📩 Messenger:", text)
+            db = SessionLocal()
+            # 🔍 detectar teléfono
             phone_detected = extract_phone(text)
-            
             if phone_detected:
                 print("📱 Teléfono detectado:", phone_detected)
                 existing_contact = db.query(Contact).filter(
                     Contact.phone == phone_detected
                 ).first()
                 current_contact = db.query(Contact).filter(
-                    Contact.phone == sender_id
+                    Contact.messenger_id == sender_id   # 🔥 CORREGIDO
                 ).first()
                 if existing_contact:
-                # 🔄 ya existe → vincular
+                    # 🔄 vincular contactos
                     print("🔗 Vinculando contactos")
-                    # opcional: migrar leads si querés
-                    leads = db.query(Lead).filter(Lead.phone == sender_id).all()
+                    leads = db.query(Lead).filter(
+                        Lead.phone == sender_id
+                    ).all()
                     for lead in leads:
                         lead.phone = phone_detected
-                    db.delete(current_contact)
+                    if current_contact:
+                        db.delete(current_contact)
                 else:
                     # 🆕 actualizar contacto actual
                     print("🆕 Actualizando contacto con teléfono real")
-                    current_contact.phone = phone_detected
+                    if current_contact:
+                        current_contact.phone = phone_detected
                 db.commit()
+        
+        
+        # if "messaging" in entry:
+        #     phone_detected = extract_phone(text)
+        #     if phone_detected:
+        #         print("📱 Teléfono detectado:", phone_detected)
+        #         existing_contact = db.query(Contact).filter(
+        #             Contact.phone == phone_detected
+        #         ).first()
+        #         current_contact = db.query(Contact).filter(
+        #             Contact.phone == sender_id
+        #         ).first()
+        #         if existing_contact:
+        #         # 🔄 ya existe → vincular
+        #             print("🔗 Vinculando contactos")
+        #             # opcional: migrar leads si querés
+        #             leads = db.query(Lead).filter(Lead.phone == sender_id).all()
+        #             for lead in leads:
+        #                 lead.phone = phone_detected
+        #             db.delete(current_contact)
+        #         else:
+        #             # 🆕 actualizar contacto actual
+        #             print("🆕 Actualizando contacto con teléfono real")
+        #             current_contact.phone = phone_detected
+        #         db.commit()
+        #     messaging_event = entry["messaging"][0]
+        #     sender_id = messaging_event["sender"]["id"]
+        #     text = ""
+        #     if "message" in messaging_event:
+        #         text = messaging_event["message"].get("text", "")
+        #     print("📩 Messenger:", text)
+        #     db = SessionLocal()
 
-
-            messaging_event = entry["messaging"][0]
-
-            sender_id = messaging_event["sender"]["id"]
-            text = ""
-
-            if "message" in messaging_event:
-                text = messaging_event["message"].get("text", "")
-
-            print("📩 Messenger:", text)
-
-            db = SessionLocal()
 
             # detectar propiedad en link
             property_id = None
