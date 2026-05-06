@@ -19,6 +19,7 @@ from app.services.property_service import get_properties_by_property_type
 from time import time
 from app.services.websocket_manager import notify_admins
 import re
+from sqlalchemy.exc import IntegrityError
 
 
 user_context = {}   ## contexto simple en memoria para cada usuario (se pierde si se reinicia el servidor, pero es suficiente para este ejemplo)
@@ -256,6 +257,7 @@ async def receive_message(request: Request):
                         )
                         db.add(contact)
             else:
+                
                 # 🔴 IMPORTANTE: NO crear duplicado
                 if contact:
                     print("✔️ Contacto ya existe (solo messenger)")
@@ -267,8 +269,15 @@ async def receive_message(request: Request):
                         status="human"
                     )
                     db.add(contact)
-            db.commit()
-            db.refresh(contact)
+                    try:
+                        db.commit()
+                        db.refresh(contact)
+                    except IntegrityError:
+                        db.rollback()
+                        print("⚠️ Contacto creado en paralelo, recuperando...")
+                        contact = db.query(Contact).filter(
+                            Contact.messenger_id == sender_id
+                        ).first()
 
 
             # detectar propiedad en link
