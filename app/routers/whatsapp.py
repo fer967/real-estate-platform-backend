@@ -214,49 +214,38 @@ async def receive_message(request: Request):
             db = SessionLocal()
             name = get_messenger_user_name(sender_id)
 
-            # 🔍 detectar teléfono PRIMERO
+
+            # 🔍 detectar teléfono
             raw_phone = extract_phone(text)
             phone_detected = normalize_phone(raw_phone)
-
-            contact = None
-
+            # 🔍 buscar contacto SIEMPRE primero
+            contact = db.query(Contact).filter(
+                Contact.messenger_id == sender_id
+            ).first()
             if phone_detected:
                 print("📱 Teléfono detectado:", phone_detected)
-
-                # 🔍 buscar contacto actual por messenger_id
-                current_contact = db.query(Contact).filter(
-                    Contact.messenger_id == sender_id
-                ).first()
-
-                # 🔍 buscar por teléfono
+                # buscar si ya existe ese teléfono
                 existing_contact = db.query(Contact).filter(
                     Contact.phone == phone_detected
                 ).first()
-
                 if existing_contact:
                     print("🔗 Vinculando con contacto existente")
-
+                    # asignar messenger_id al correcto
                     existing_contact.messenger_id = sender_id
-
-                    # 🔄 migrar leads
+                    # migrar leads
                     leads = db.query(Lead).filter(
                         Lead.phone == sender_id
                     ).all()
-
                     for lead in leads:
                         lead.phone = phone_detected
-
                     # eliminar duplicado si existe
-                    if current_contact and current_contact.id != existing_contact.id:
-                        db.delete(current_contact)
-
+                    if contact and contact.id != existing_contact.id:
+                        db.delete(contact)
                     contact = existing_contact
-
                 else:
-                    if current_contact:
+                    if contact:
                         print("🆕 Actualizando contacto actual")
-                        current_contact.phone = phone_detected
-                        contact = current_contact
+                        contact.phone = phone_detected
                     else:
                         print("🆕 Creando contacto completo")
                         contact = Contact(
@@ -266,14 +255,11 @@ async def receive_message(request: Request):
                             status="human"
                         )
                         db.add(contact)
-
             else:
-                # 🔍 no hay teléfono → usar messenger_id
-                contact = db.query(Contact).filter(
-                Contact.messenger_id == sender_id
-                ).first()
-
-                if not contact:
+                # 🔴 IMPORTANTE: NO crear duplicado
+                if contact:
+                    print("✔️ Contacto ya existe (solo messenger)")
+                else:
                     print("🆕 Creando contacto solo messenger")
                     contact = Contact(
                         name=name,
@@ -281,7 +267,6 @@ async def receive_message(request: Request):
                         status="human"
                     )
                     db.add(contact)
-
             db.commit()
             db.refresh(contact)
 
