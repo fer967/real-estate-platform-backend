@@ -3,7 +3,6 @@ from fastapi import APIRouter, Request, HTTPException
 import os
 import requests
 from dotenv import load_dotenv
-from sqlalchemy import text
 from app.integrations.hubspot import update_hubspot_contact
 from app.models.contact import Contact
 from app.models.lead import Lead
@@ -175,35 +174,24 @@ def extract_phone(text):
 def normalize_phone(phone: str) -> str | None:
     if not phone:
         return None
-
     # 🔹 dejar solo números
     digits = re.sub(r"\D", "", phone)
-
     # 🔴 muy corto → inválido
     if len(digits) < 10:
         return None
-
-    # ======================================================
-    # 🇦🇷 ARGENTINA
-    # ======================================================
-
     # Caso 1: ya viene bien (549...)
     if digits.startswith("549") and len(digits) >= 12:
         return digits
-
     # Caso 2: viene con +54 sin 9 → agregar 9
     if digits.startswith("54") and not digits.startswith("549"):
         return "549" + digits[2:]
-
     # Caso 3: empieza con 0 (ej: 0351...)
     if digits.startswith("0"):
         digits = digits[1:]
         return "549" + digits
-
     # Caso 4: número local (ej: 351...)
     if len(digits) == 10:
         return "549" + digits
-
     # fallback
     return digits
 
@@ -215,27 +203,18 @@ async def receive_message(request: Request):
     
     try:
         entry = body["entry"][0]
-        
-        # ======================================================
-        # 📩 MESSENGER
-        # ======================================================
-        
-        
+
         if "messaging" in entry:
             messaging_event = entry["messaging"][0]
             sender_id = messaging_event["sender"]["id"]
-
             text = ""
             if "message" in messaging_event:
                 text = messaging_event["message"].get("text", "")
-
             print("📩 Messenger:", text)
-
             db = SessionLocal()
             name = get_messenger_user_name(sender_id)
 
             # 🔍 detectar teléfono PRIMERO
-            # phone_detected = extract_phone(text)   ####################
             raw_phone = extract_phone(text)
             phone_detected = normalize_phone(raw_phone)
 
@@ -244,38 +223,54 @@ async def receive_message(request: Request):
             if phone_detected:
                 print("📱 Teléfono detectado:", phone_detected)
 
+                # 🔍 buscar contacto actual por messenger_id
+                current_contact = db.query(Contact).filter(
+                    Contact.messenger_id == sender_id
+                ).first()
+
                 # 🔍 buscar por teléfono
-                contact = db.query(Contact).filter(
+                existing_contact = db.query(Contact).filter(
                     Contact.phone == phone_detected
                 ).first()
 
-                if contact:
+                if existing_contact:
                     print("🔗 Vinculando con contacto existente")
-                    contact.messenger_id = sender_id
+
+                    existing_contact.messenger_id = sender_id
+
+                    # 🔄 migrar leads
+                    leads = db.query(Lead).filter(
+                        Lead.phone == sender_id
+                    ).all()
+
+                    for lead in leads:
+                        lead.phone = phone_detected
+
+                    # eliminar duplicado si existe
+                    if current_contact and current_contact.id != existing_contact.id:
+                        db.delete(current_contact)
+
+                    contact = existing_contact
 
                 else:
-                    print("🆕 Creando contacto con teléfono")
-                    contact = Contact(
-                        name=name,
-                        # phone=phone_detected,
-                        phone = normalize_phone(contact.phone),
-                        messenger_id=sender_id,
-                        status="human"
-                    )
-                    db.add(contact)
-
-                # 🔄 migrar leads viejos del sender_id
-                leads = db.query(Lead).filter(
-                    Lead.phone == sender_id
-                ).all()
-
-                for lead in leads:
-                    lead.phone = phone_detected
+                    if current_contact:
+                        print("🆕 Actualizando contacto actual")
+                        current_contact.phone = phone_detected
+                        contact = current_contact
+                    else:
+                        print("🆕 Creando contacto completo")
+                        contact = Contact(
+                            name=name,
+                            phone=phone_detected,
+                            messenger_id=sender_id,
+                            status="human"
+                        )
+                        db.add(contact)
 
             else:
                 # 🔍 no hay teléfono → usar messenger_id
                 contact = db.query(Contact).filter(
-                    Contact.messenger_id == sender_id
+                Contact.messenger_id == sender_id
                 ).first()
 
                 if not contact:
@@ -327,13 +322,8 @@ async def receive_message(request: Request):
 💬 {text}
 """
             )
-
             db.close()
             return {"status": "messenger_lead"}
-
-        # ======================================================
-        # 📲 WHATSAPP (tu lógica original)
-        # ======================================================
 
         changes = entry["changes"][0]
         value = changes["value"]
@@ -360,7 +350,6 @@ async def receive_message(request: Request):
                 "type": None,
                 "step": "menu"
             }
-
         ctx = user_context[phone]
 
         # detectar texto
@@ -373,7 +362,6 @@ async def receive_message(request: Request):
         else:
             text = message.get("text", {}).get("body", "")
             text_lower = text.lower().strip()
-
         print("📲 WhatsApp:", text)
 
         # detectar property_id
@@ -383,17 +371,11 @@ async def receive_message(request: Request):
             property_id = match.group(1)
             print("🏠 Property ID detectado:", property_id)
 
-        # ======================================================
-        # 🚨 LEAD DIRECTO DESDE WEB
-        # ======================================================
         if property_id:
             print("🏡 Lead directo desde web detectado")
-
             db = SessionLocal()
-
             contacts = value.get("contacts", [])
             name = contacts[0].get("profile", {}).get("name", "WhatsApp User") if contacts else "WhatsApp User"
-
             contact = db.query(Contact).filter(Contact.phone == phone).first()
 
             if not contact:
@@ -433,23 +415,13 @@ async def receive_message(request: Request):
             )
             
             send_message(contact, "🙌 Gracias por tu consulta. Un asesor te responde por acá.")
-
-            # send_whatsapp_message(
-            #     phone,
-            #     "🙌 Gracias por tu consulta. Un asesor te responde por acá."
-            # )
-
             db.close()
             return {"status": "direct_property_lead"}
 
-        # ======================================================
         # 💾 GUARDAR LEAD NORMAL
-        # ======================================================
         db = SessionLocal()
-
         contacts = value.get("contacts", [])
         name = contacts[0].get("profile", {}).get("name", "WhatsApp User") if contacts else "WhatsApp User"
-
         create_lead_service(
             db=db,
             name=name,
@@ -477,9 +449,7 @@ async def receive_message(request: Request):
                 "hs_lead_status": "IN_PROGRESS"
             })
 
-        # ======================================================
         # 🤖 BOT
-        # ======================================================
         step = ctx.get("step")
         # 🔹 MENÚ PRINCIPAL
         if text_lower in ["hola", "buenas", "menu", "inicio"]:
@@ -519,7 +489,6 @@ async def receive_message(request: Request):
         if text_lower == "vender":
             ctx["step"] = "vender"
             send_message(contact, "📊 Podés buscar tasaciones en la barra de búsqueda o escribir *asesor*")
-            # send_whatsapp_message(phone, "📊 Podés buscar tasaciones en la barra de búsqueda o escribir *asesor*")
             db.close()
             return
 
@@ -596,7 +565,6 @@ async def receive_message(request: Request):
             💬 {text}
             """
             )
-
             return
 
         # 🟢 MENÚ PRINCIPAL   
@@ -605,7 +573,6 @@ async def receive_message(request: Request):
                 contact.status = "human"
                 db.commit()
                 send_message(contact, "🙌 Te paso con un asesor para ayudarte mejor.")
-                # send_whatsapp_message(phone, "🙌 Te paso con un asesor para ayudarte mejor.")
                 await notify_admins({
                     "type": "new_lead",
                     "phone": phone,

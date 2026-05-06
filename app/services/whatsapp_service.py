@@ -61,23 +61,6 @@ def send_whatsapp_message(to: str, message: str):
     return response.json()
 
 
-def send_menu_message(to):
-    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
-    headers = {
-        "Authorization": f"Bearer {WHATSAPP_TOKEN}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": to,
-        "type": "text",
-        "text": {
-            "body": "Hola 👋\n\nGracias por contactar con la inmobiliaria.\n\n1️⃣ Ver propiedades en venta\n2️⃣ Ver alquileres\n3️⃣ Solicitar tasación"
-        }
-    }
-    requests.post(url, headers=headers, json=payload)
-
-
 def send_and_save(db, contact, text):
     response = send_message(contact, text)
     new_msg = Lead(
@@ -92,6 +75,23 @@ def send_and_save(db, contact, text):
     db.commit()
     return response
 
+
+
+# def send_menu_message(to):
+#     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+#     headers = {
+#         "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+#         "Content-Type": "application/json"
+#     }
+#     payload = {
+#         "messaging_product": "whatsapp",
+#         "to": to,
+#         "type": "text",
+#         "text": {
+#             "body": "Hola 👋\n\nGracias por contactar con la inmobiliaria.\n\n1️⃣ Ver propiedades en venta\n2️⃣ Ver alquileres\n3️⃣ Solicitar tasación"
+#         }
+#     }
+#     requests.post(url, headers=headers, json=payload)
 
 
 
