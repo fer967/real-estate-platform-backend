@@ -172,6 +172,42 @@ def extract_phone(text):
     return match.group(0) if match else None
 
 
+def normalize_phone(phone: str) -> str | None:
+    if not phone:
+        return None
+
+    # 🔹 dejar solo números
+    digits = re.sub(r"\D", "", phone)
+
+    # 🔴 muy corto → inválido
+    if len(digits) < 10:
+        return None
+
+    # ======================================================
+    # 🇦🇷 ARGENTINA
+    # ======================================================
+
+    # Caso 1: ya viene bien (549...)
+    if digits.startswith("549") and len(digits) >= 12:
+        return digits
+
+    # Caso 2: viene con +54 sin 9 → agregar 9
+    if digits.startswith("54") and not digits.startswith("549"):
+        return "549" + digits[2:]
+
+    # Caso 3: empieza con 0 (ej: 0351...)
+    if digits.startswith("0"):
+        digits = digits[1:]
+        return "549" + digits
+
+    # Caso 4: número local (ej: 351...)
+    if len(digits) == 10:
+        return "549" + digits
+
+    # fallback
+    return digits
+
+
 # 📥 RECEIVE WEBHOOK
 @router.post("/webhook")
 async def receive_message(request: Request):
@@ -199,7 +235,9 @@ async def receive_message(request: Request):
             name = get_messenger_user_name(sender_id)
 
             # 🔍 detectar teléfono PRIMERO
-            phone_detected = extract_phone(text)
+            # phone_detected = extract_phone(text)   ####################
+            raw_phone = extract_phone(text)
+            phone_detected = normalize_phone(raw_phone)
 
             contact = None
 
@@ -219,7 +257,8 @@ async def receive_message(request: Request):
                     print("🆕 Creando contacto con teléfono")
                     contact = Contact(
                         name=name,
-                        phone=phone_detected,
+                        # phone=phone_detected,
+                        phone = normalize_phone(contact.phone),
                         messenger_id=sender_id,
                         status="human"
                     )
@@ -252,60 +291,6 @@ async def receive_message(request: Request):
             db.refresh(contact)
 
 
-
-        # if "messaging" in entry:
-        #     messaging_event = entry["messaging"][0]
-        #     sender_id = messaging_event["sender"]["id"]
-        #     text = ""
-        #     if "message" in messaging_event:
-        #         text = messaging_event["message"].get("text", "")
-        #     print("📩 Messenger:", text)
-        #     db = SessionLocal()
-            
-        #     # 👤 nombre
-        #     name = get_messenger_user_name(sender_id)
-
-        #     # 🔍 buscar contacto por messenger_id
-        #     contact = db.query(Contact).filter(
-        #         Contact.messenger_id == sender_id
-        #     ).first()
-        #     if not contact:
-        #         contact = Contact(
-        #             name=name,
-        #             messenger_id=sender_id,
-        #             status="human"
-        #         )
-        #         db.add(contact)
-        #         db.commit()
-        #         db.refresh(contact)
-        #     # 🔍 detectar teléfono
-        #     phone_detected = extract_phone(text)
-        #     if phone_detected:
-        #         print("📱 Teléfono detectado:", phone_detected)
-        #         # buscar si YA existe ese teléfono
-        #         existing_contact = db.query(Contact).filter(
-        #             Contact.phone == phone_detected
-        #         ).first()
-        #         if existing_contact:
-        #             print("🔗 Vinculando cuentas")
-        #             # mover messenger_id al existente
-        #             existing_contact.messenger_id = sender_id
-        #             # migrar leads del messenger_id → teléfono real
-        #             leads = db.query(Lead).filter(
-        #                 Lead.phone == sender_id
-        #             ).all()
-        #             for lead in leads:
-        #                 lead.phone = phone_detected
-        #             # eliminar el contacto duplicado (el de messenger)
-        #             db.delete(contact)
-        #             contact = existing_contact
-        #         else:
-        #             print("🆕 Guardando teléfono en contacto existente")
-        #             contact.phone = phone_detected
-        #         db.commit()
-
-
-
             # detectar propiedad en link
             property_id = None
             match = re.search(r"property/([a-z0-9\-]+)", text.lower())
@@ -333,6 +318,7 @@ async def receive_message(request: Request):
             })
 
             # notificar admin por WhatsApp
+            phone = normalize_phone(contact.phone)
             send_whatsapp_message(
                 ADMIN_PHONE,
                 f"""📩 Nuevo lead desde Messenger
@@ -435,6 +421,7 @@ async def receive_message(request: Request):
                 "message": text
             })
 
+            phone = normalize_phone(contact.phone)
             send_whatsapp_message(
                 ADMIN_PHONE,
                 f"""📩 Nuevo lead desde web
@@ -567,6 +554,7 @@ async def receive_message(request: Request):
             💬 Mensaje:
             {text}
             """
+                phone = normalize_phone(contact.phone)
                 send_whatsapp_message(ADMIN_PHONE, admin_msg)
                 # 🔔 notificar panel (websocket)
                 await notify_admins({
@@ -583,6 +571,7 @@ async def receive_message(request: Request):
                 msg += f"📍 {prop.price}\n"
                 msg += f"\n\n🔗 Ver propiedad:\nhttps://frontend-plataforma-inmobiliaria.onrender.com/property/{prop.id}\n\n"
                 msg += f" si querés más info escribí *asesor*\n"
+            phone = normalize_phone(contact.phone)
             send_whatsapp_message(contact, msg)
             return
 
@@ -598,6 +587,7 @@ async def receive_message(request: Request):
                 "name": contact.name if contact else "Unknown"
             })
 
+            phone = normalize_phone(contact.phone)
             send_whatsapp_message(
             ADMIN_PHONE,
             f"""📩 Nuevo lead (solicitó asesor)
@@ -660,18 +650,6 @@ def send_whatsapp(data: dict):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# def send_and_save(db, phone, text, contact):
-#     send_whatsapp_message(phone, text)
-#     new_msg = Lead(
-#         name=contact.name,
-#         phone=phone,
-#         message=text,
-#         contact_id=contact.id,
-#         source="whatsapp",
-#         status="sent"
-#     )
-#     db.add(new_msg)
-#     db.commit()
 
 
 

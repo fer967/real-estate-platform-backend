@@ -90,7 +90,6 @@ def send_and_save(db, contact, text):
     )
     db.add(new_msg)
     db.commit()
-
     return response
 
 
