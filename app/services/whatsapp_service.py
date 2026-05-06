@@ -24,12 +24,6 @@ def send_messenger_message(psid: str, message: str):
 
 
 def send_message(contact, message):
-    """
-    Envío inteligente según canal disponible
-    """
-    if not contact.phone or len(contact.phone) < 10:
-        return {"error": "Contacto sin teléfono válido"}
-    
     if contact.phone:
         print("📲 Enviando por WhatsApp")
         return send_whatsapp_message(contact.phone, message)
@@ -37,8 +31,26 @@ def send_message(contact, message):
         print("💬 Enviando por Messenger")
         return send_messenger_message(contact.messenger_id, message)
     else:
-        print("❌ Contacto sin canal disponible")
+        print("❌ Sin canal")
         return None
+
+
+# def send_message(contact, message):
+#     """
+#     Envío inteligente según canal disponible
+#     """
+#     if not contact.phone or len(contact.phone) < 10:
+#         return {"error": "Contacto sin teléfono válido"}
+    
+#     if contact.phone:
+#         print("📲 Enviando por WhatsApp")
+#         return send_whatsapp_message(contact.phone, message)
+#     elif contact.messenger_id:
+#         print("💬 Enviando por Messenger")
+#         return send_messenger_message(contact.messenger_id, message)
+#     else:
+#         print("❌ Contacto sin canal disponible")
+#         return None
 
 
 def send_whatsapp_message(to: str, message: str):
